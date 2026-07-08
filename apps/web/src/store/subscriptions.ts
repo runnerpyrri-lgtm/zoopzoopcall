@@ -50,7 +50,8 @@ export function loadSampleAnchor(): number {
   if (Number.isFinite(saved) && saved > 0 && Date.now() - saved < 24 * 3600_000) {
     return saved;
   }
-  const anchor = Date.now();
+  // 5분 경계로 올림해 접수 시각이 정시(…:05, …:10)로 떨어지게 한다.
+  const anchor = Math.ceil(Date.now() / 300_000) * 300_000;
   localStorage.setItem(ANCHOR_KEY, String(anchor));
   return anchor;
 }

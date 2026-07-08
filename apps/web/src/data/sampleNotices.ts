@@ -32,7 +32,7 @@ const SPECS: Spec[] = [
     supplyCount: 5,
     priceMin: 32000,
     priceMax: 41000,
-    startOffsetMs: 3 * MIN,
+    startOffsetMs: 5 * MIN,
     endOffsetMs: 8 * HOUR,
   },
   {
