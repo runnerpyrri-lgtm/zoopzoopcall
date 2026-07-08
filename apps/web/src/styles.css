@@ -262,16 +262,77 @@ a {
   align-items: center;
 }
 
+.filters__row--top .filters__chips {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 0;
+}
+
+.filters__select {
+  flex: none;
+}
+
 .filters__select select {
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
   background: var(--card);
   border: 1.5px solid var(--line);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   min-height: 44px;
+  max-width: 40vw;
+}
+
+/* ---- 접수 상태 세그먼트 ---- */
+.segmented {
+  display: flex;
+  gap: 3px;
+  margin-top: 10px;
+  padding: 3px;
+  background: var(--paper-deep);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+}
+
+.segmented__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 6px 4px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.segmented__item--active {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.segmented__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segmented__count {
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+.segmented__item--active .segmented__count {
+  color: var(--stamp);
 }
 
 .chip {

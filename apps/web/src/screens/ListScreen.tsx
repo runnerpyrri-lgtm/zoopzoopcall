@@ -1,8 +1,8 @@
-// 공고 목록 화면. 필터 + 접수중/예정/마감 그룹으로 보여준다.
-import { useMemo, useState } from "react";
+// 공고 목록 화면. 유형·지역 필터 + 접수중/예정/마감·취소 상태를 골라 본다.
+import { useEffect, useMemo, useState } from "react";
 import type { Notice } from "@zoopzoopcall/core";
 import { getNoticeStatus } from "@zoopzoopcall/core";
-import { FilterBar, type TypeFilter } from "../components/FilterBar";
+import { FilterBar, type StatusView, type TypeFilter } from "../components/FilterBar";
 import { NoticeCard } from "../components/NoticeCard";
 import { PermissionBanner } from "../components/PermissionBanner";
 import { useNow } from "../hooks/useNow";
@@ -17,11 +17,19 @@ type Props = {
   subs: SubMap;
 };
 
+const STATUS_ORDER: StatusView[] = ["접수중", "접수예정", "마감·취소"];
+const HEADING: Record<StatusView, string> = {
+  접수중: "지금 접수중",
+  접수예정: "접수 예정",
+  "마감·취소": "마감·취소",
+};
+
 export function ListScreen({ notices, source, error, loading, subs }: Props) {
   const now = useNow(15_000);
   const [type, setType] = useState<TypeFilter>("전체");
   const [region, setRegion] = useState("전체");
-  const [openOnly, setOpenOnly] = useState(false);
+  const [statusView, setStatusView] = useState<StatusView>("접수중");
+  const [touched, setTouched] = useState(false);
 
   const regions = useMemo(
     () => [...new Set(notices.map((n) => n.region))].sort((a, b) => a.localeCompare(b, "ko")),
@@ -33,24 +41,46 @@ export function ListScreen({ notices, source, error, loading, subs }: Props) {
       notices.filter((n) => {
         if (type !== "전체" && n.type !== type) return false;
         if (region !== "전체" && n.region !== region) return false;
-        if (openOnly && getNoticeStatus(n, now) !== "접수중") return false;
         return true;
       }),
-    [notices, type, region, openOnly, now],
+    [notices, type, region],
   );
 
   const groups = useMemo(() => {
-    const open = filtered
+    const 접수중 = filtered
       .filter((n) => getNoticeStatus(n, now) === "접수중")
       .sort((a, b) => Date.parse(a.receiptEnd) - Date.parse(b.receiptEnd));
-    const upcoming = filtered
+    const 접수예정 = filtered
       .filter((n) => ["예정", "정정"].includes(getNoticeStatus(n, now)))
       .sort((a, b) => Date.parse(a.receiptStart) - Date.parse(b.receiptStart));
-    const finished = filtered
+    const 마감취소 = filtered
       .filter((n) => ["마감", "취소"].includes(getNoticeStatus(n, now)))
       .sort((a, b) => Date.parse(b.receiptEnd) - Date.parse(a.receiptEnd));
-    return { open, upcoming, finished };
+    return { 접수중, 접수예정, "마감·취소": 마감취소 } as Record<StatusView, Notice[]>;
   }, [filtered, now]);
+
+  const counts = useMemo(
+    () => ({
+      접수중: groups["접수중"].length,
+      접수예정: groups["접수예정"].length,
+      "마감·취소": groups["마감·취소"].length,
+    }),
+    [groups],
+  );
+
+  // 사용자가 아직 상태를 고르지 않았으면, 공고가 있는 첫 상태를 자동 선택한다.
+  useEffect(() => {
+    if (touched) return;
+    const firstNonEmpty = STATUS_ORDER.find((s) => counts[s] > 0);
+    if (firstNonEmpty && firstNonEmpty !== statusView) setStatusView(firstNonEmpty);
+  }, [counts, touched, statusView]);
+
+  const onStatusView = (s: StatusView) => {
+    setTouched(true);
+    setStatusView(s);
+  };
+
+  const active = groups[statusView];
 
   return (
     <div className="screen">
@@ -75,8 +105,9 @@ export function ListScreen({ notices, source, error, loading, subs }: Props) {
           regions={regions}
           region={region}
           onRegion={setRegion}
-          openOnly={openOnly}
-          onOpenOnly={setOpenOnly}
+          statusView={statusView}
+          onStatusView={onStatusView}
+          counts={counts}
         />
       )}
 
@@ -101,36 +132,18 @@ export function ListScreen({ notices, source, error, loading, subs }: Props) {
         </div>
       )}
 
-      {groups.open.length > 0 && (
+      {!loading && filtered.length > 0 && (
         <section className="group">
           <h2 className="group__title">
-            지금 접수중 <em>{groups.open.length}</em>
+            {HEADING[statusView]} <em>{active.length}</em>
           </h2>
-          {groups.open.map((n) => (
-            <NoticeCard key={n.id} notice={n} now={now} subscribed={n.id in subs} />
-          ))}
-        </section>
-      )}
-
-      {groups.upcoming.length > 0 && (
-        <section className="group">
-          <h2 className="group__title">
-            접수 예정 <em>{groups.upcoming.length}</em>
-          </h2>
-          {groups.upcoming.map((n) => (
-            <NoticeCard key={n.id} notice={n} now={now} subscribed={n.id in subs} />
-          ))}
-        </section>
-      )}
-
-      {groups.finished.length > 0 && (
-        <section className="group">
-          <h2 className="group__title">
-            마감·취소 <em>{groups.finished.length}</em>
-          </h2>
-          {groups.finished.map((n) => (
-            <NoticeCard key={n.id} notice={n} now={now} subscribed={n.id in subs} />
-          ))}
+          {active.length > 0 ? (
+            active.map((n) => (
+              <NoticeCard key={n.id} notice={n} now={now} subscribed={n.id in subs} />
+            ))
+          ) : (
+            <p className="empty empty__body">이 상태의 공고가 지금은 없어요.</p>
+          )}
         </section>
       )}
     </div>
