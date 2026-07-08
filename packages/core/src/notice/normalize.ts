@@ -56,6 +56,20 @@ export function kstDateToUtcIso(dateYmd: string, timeHm: string): string {
   return new Date(`${dateYmd}T${timeHm}:00+09:00`).toISOString();
 }
 
+/**
+ * 접수일 문자열을 YYYY-MM-DD로 정규화한다.
+ * 청약홈이 YYYY-MM-DD 또는 YYYYMMDD로 줄 수 있어 둘 다 받는다.
+ * 형식이 맞지 않거나 실제 날짜로 파싱되지 않으면 null을 반환해 해당 공고를 제외시킨다.
+ */
+export function normalizeYmd(value: unknown): string | null {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const ymd = `${year}-${month}-${day}`;
+  return Number.isNaN(Date.parse(`${ymd}T00:00:00+09:00`)) ? null : ymd;
+}
+
 /** HOUSE_SECD 코드로 공고 유형을 판정한다. 04=무순위(잔여세대 포함), 06=취소후재공급. */
 export function resolveNoticeType(raw: RawRemndrItem): NoticeType {
   if (raw.HOUSE_SECD === "06") return "취소후재공급";
@@ -105,8 +119,8 @@ export function normalizeRemndrItem(
   modelItems: RawRemndrModelItem[] = [],
 ): Notice | null {
   const houseName = raw.HOUSE_NM?.trim();
-  const start = raw.SUBSCRPT_RCEPT_BGNDE;
-  const end = raw.SUBSCRPT_RCEPT_ENDDE;
+  const start = normalizeYmd(raw.SUBSCRPT_RCEPT_BGNDE);
+  const end = normalizeYmd(raw.SUBSCRPT_RCEPT_ENDDE);
   if (!houseName || !start || !end) return null;
 
   const manageNo = String(raw.HOUSE_MANAGE_NO ?? "");
@@ -123,7 +137,6 @@ export function normalizeRemndrItem(
     pblancNo,
     type: resolveNoticeType(raw),
     officialTypeName: raw.HOUSE_SECD_NM?.trim(),
-    housingCategory: "APT 잔여세대/무순위",
     sourceOperation: "getRemndrLttotPblancDetail",
     houseName,
     region: raw.SUBSCRPT_AREA_CODE_NM?.trim() || "전국",

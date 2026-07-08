@@ -39,6 +39,15 @@ function kstDateToUtcIso(dateYmd: string, timeHm: string): string {
   return new Date(`${dateYmd}T${timeHm}:00+09:00`).toISOString();
 }
 
+// core/normalize.ts의 normalizeYmd와 동일 규칙. 두 파일 결과가 어긋나지 않게 함께 유지한다.
+function normalizeYmd(value: unknown): string | null {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+  if (!match) return null;
+  const ymd = `${match[1]}-${match[2]}-${match[3]}`;
+  return Number.isNaN(Date.parse(`${ymd}T00:00:00+09:00`)) ? null : ymd;
+}
+
 function text(value: unknown): string | undefined {
   const out = String(value ?? "").trim();
   return out || undefined;
@@ -116,8 +125,8 @@ function normalizeModels(items: RawItem[]) {
 
 function normalize(raw: RawItem, models: RawItem[], verifiedAt: string) {
   const houseName = text(raw.HOUSE_NM);
-  const start = text(raw.SUBSCRPT_RCEPT_BGNDE);
-  const end = text(raw.SUBSCRPT_RCEPT_ENDDE);
+  const start = normalizeYmd(raw.SUBSCRPT_RCEPT_BGNDE);
+  const end = normalizeYmd(raw.SUBSCRPT_RCEPT_ENDDE);
   if (!houseName || !start || !end) return null;
   if (end < todayKst()) return null;
 
@@ -134,7 +143,6 @@ function normalize(raw: RawItem, models: RawItem[], verifiedAt: string) {
     pblancNo,
     type: resolveType(raw),
     officialTypeName: text(raw.HOUSE_SECD_NM),
-    housingCategory: "APT 잔여세대/무순위",
     sourceOperation: DETAIL_OPERATION,
     houseName,
     region: text(raw.SUBSCRPT_AREA_CODE_NM) || "전국",

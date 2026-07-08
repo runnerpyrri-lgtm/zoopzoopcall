@@ -4,6 +4,7 @@ import {
   kstDateToUtcIso,
   normalizeRemndrItem,
   normalizeRemndrItems,
+  normalizeYmd,
   resolveNoticeType,
 } from "../notice/normalize";
 
@@ -29,6 +30,21 @@ describe("kstDateToUtcIso", () => {
   it("KST 날짜+시각을 UTC ISO로 변환한다", () => {
     expect(kstDateToUtcIso("2026-07-10", "09:00")).toBe("2026-07-10T00:00:00.000Z");
     expect(kstDateToUtcIso("2026-07-10", "17:30")).toBe("2026-07-10T08:30:00.000Z");
+  });
+});
+
+describe("normalizeYmd", () => {
+  it("YYYY-MM-DD와 YYYYMMDD를 모두 YYYY-MM-DD로 정규화한다", () => {
+    expect(normalizeYmd("2026-07-10")).toBe("2026-07-10");
+    expect(normalizeYmd("20260710")).toBe("2026-07-10");
+    expect(normalizeYmd(" 20260710 ")).toBe("2026-07-10");
+  });
+
+  it("형식이 맞지 않으면 null", () => {
+    expect(normalizeYmd("")).toBeNull();
+    expect(normalizeYmd(undefined)).toBeNull();
+    expect(normalizeYmd("2026/07/10")).toBeNull();
+    expect(normalizeYmd("미정")).toBeNull();
   });
 });
 
@@ -60,9 +76,22 @@ describe("normalizeRemndrItem", () => {
     expect(n!.lastVerifiedAt).toBe(VERIFIED);
   });
 
+  it("접수일이 YYYYMMDD로 와도 동일하게 변환한다", () => {
+    const n = normalizeRemndrItem(
+      { ...raw, SUBSCRPT_RCEPT_BGNDE: "20260710", SUBSCRPT_RCEPT_ENDDE: "20260710" },
+      VERIFIED,
+    );
+    expect(n!.receiptStart).toBe("2026-07-10T00:00:00.000Z");
+    expect(n!.receiptEnd).toBe("2026-07-10T08:30:00.000Z");
+  });
+
   it("단지명이나 접수일이 없으면 null", () => {
     expect(normalizeRemndrItem({ ...raw, HOUSE_NM: "" }, VERIFIED)).toBeNull();
     expect(normalizeRemndrItem({ ...raw, SUBSCRPT_RCEPT_BGNDE: undefined }, VERIFIED)).toBeNull();
+  });
+
+  it("접수일 형식이 깨지면 해당 공고를 제외한다", () => {
+    expect(normalizeRemndrItem({ ...raw, SUBSCRPT_RCEPT_ENDDE: "미정" }, VERIFIED)).toBeNull();
   });
 
   it("공급규모가 숫자가 아니면 undefined", () => {
