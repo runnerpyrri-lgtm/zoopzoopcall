@@ -36,7 +36,7 @@ supabase functions deploy notices --no-verify-jwt
 VITE_NOTICES_URL=https://<ref>.functions.supabase.co/notices
 ```
 
-4. `pnpm build` 후 위 재배포 절차 실행 → 화면 우상단 배지가 "샘플 데이터"에서 "실시간"으로 바뀐다.
+4. `pnpm build` 후 위 재배포 절차 실행 → 화면 우상단 배지가 "연결 필요"에서 "실공고"로 바뀐다.
 
 주의:
 
