@@ -96,7 +96,7 @@ export function ListScreen({ notices, source, error, loading, subs }: Props) {
 
       {error && <div className="notice-bar">{error}</div>}
 
-      <PermissionBanner compact />
+      <PermissionBanner compact hidePrompt />
 
       {notices.length > 0 && (
         <FilterBar

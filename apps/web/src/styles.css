@@ -637,6 +637,10 @@ a {
   margin-bottom: 8px;
 }
 
+.detail__actions--secondary {
+  margin-top: 12px;
+}
+
 /* ---- 버튼 ---- */
 .btn {
   display: inline-flex;
@@ -726,21 +730,28 @@ a {
 /* ---- 스위치 ---- */
 .switch {
   width: 58px;
-  height: 34px;
+  height: 44px;
   border-radius: 999px;
-  background: var(--line);
   position: relative;
-  transition: background 0.2s;
   flex: none;
 }
 
-.switch--on {
+.switch::before {
+  content: "";
+  position: absolute;
+  inset: 5px 0;
+  border-radius: inherit;
+  background: var(--line);
+  transition: background 0.2s;
+}
+
+.switch--on::before {
   background: var(--open);
 }
 
 .switch__knob {
   position: absolute;
-  top: 3px;
+  top: 8px;
   left: 3px;
   width: 28px;
   height: 28px;
@@ -958,6 +969,7 @@ a {
 
   .card,
   .switch,
+  .switch::before,
   .switch__knob,
   .chip,
   .btn {
