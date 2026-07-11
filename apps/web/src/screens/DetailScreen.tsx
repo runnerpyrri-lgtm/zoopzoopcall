@@ -1,4 +1,5 @@
 // 공고 상세 화면. 카운트다운·알림 프리셋·청약홈 딥링크를 제공한다.
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Notice } from "@zoopzoopcall/core";
 import {
@@ -16,7 +17,11 @@ import { Countdown } from "../components/Countdown";
 import { CorrectionBadge, StatusBadge, TypeBadge } from "../components/StatusBadge";
 import { PermissionBanner } from "../components/PermissionBanner";
 import { useNow } from "../hooks/useNow";
-import { notificationSupport, requestPermission } from "../notify/notifications";
+import {
+  notificationSupport,
+  requestPermission,
+  type PermissionState,
+} from "../notify/notifications";
 import type { useSubscriptions } from "../hooks/useSubscriptions";
 
 type Props = {
@@ -28,6 +33,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const now = useNow(15_000);
+  const [permission, setPermission] = useState<PermissionState>(() => notificationSupport());
   const notice = notices.find((n) => n.id === id);
 
   if (!notice) {
@@ -55,8 +61,9 @@ export function DetailScreen({ notices, subscriptions }: Props) {
       unsubscribe(notice.id);
       return;
     }
-    if (notificationSupport() === "default") await requestPermission();
-    subscribe(notice);
+    const nextPermission = permission === "default" ? await requestPermission() : permission;
+    setPermission(nextPermission);
+    if (nextPermission === "granted") subscribe(notice);
   };
 
   const onOffset = (kind: AlertKind, off: number) => {
@@ -115,25 +122,13 @@ export function DetailScreen({ notices, subscriptions }: Props) {
         </div>
       )}
 
-      <div className="detail__actions">
-        {notice.noticeUrl && (
+      {notice.noticeUrl && (
+        <div className="detail__actions">
           <a className="btn btn--primary btn--big" href={notice.noticeUrl} target="_blank" rel="noreferrer">
             모집공고 원문 보기
           </a>
-        )}
-        <a className="btn btn--ghost btn--big" href={notice.applyHomeUrl} target="_blank" rel="noreferrer">
-          청약홈으로 이동
-        </a>
-        {notice.officialHomepageUrl && (
-          <a className="btn btn--ghost btn--big" href={notice.officialHomepageUrl} target="_blank" rel="noreferrer">
-            공식 홈페이지 보기
-          </a>
-        )}
-      </div>
-      <p className="fineprint">
-        청약 신청과 자격 확인은 청약홈 공식 사이트에서 직접 진행해야 합니다. 접수 가능 시간은 영업일
-        09:00~17:30 기준이며, 공고별 별도 조건과 정정 여부는 모집공고 원문을 확인하세요.
-      </p>
+        </div>
+      )}
 
       {!finished && (
         <section className="alerts-card">
@@ -143,12 +138,18 @@ export function DetailScreen({ notices, subscriptions }: Props) {
               className={`switch${subscribed ? " switch--on" : ""}`}
               role="switch"
               aria-checked={subscribed}
+              aria-label={`${notice.houseName} 알림 ${subscribed ? "끄기" : "켜기"}`}
               onClick={() => void onMasterToggle()}
             >
               <span className="switch__knob" />
             </button>
           </div>
-          <PermissionBanner compact />
+          <PermissionBanner
+            compact
+            permission={permission}
+            onPermissionChange={setPermission}
+            onPermissionGranted={() => subscribe(notice)}
+          />
           {subscribed && entry && (
             <>
               <div className="alerts-card__group">
@@ -186,6 +187,21 @@ export function DetailScreen({ notices, subscriptions }: Props) {
           )}
         </section>
       )}
+
+      <div className="detail__actions detail__actions--secondary">
+        <a className="btn btn--ghost btn--big" href={notice.applyHomeUrl} target="_blank" rel="noreferrer">
+          청약홈으로 이동
+        </a>
+        {notice.officialHomepageUrl && (
+          <a className="btn btn--ghost btn--big" href={notice.officialHomepageUrl} target="_blank" rel="noreferrer">
+            공식 홈페이지 보기
+          </a>
+        )}
+      </div>
+      <p className="fineprint">
+        청약 신청과 자격 확인은 청약홈 공식 사이트에서 직접 진행해야 합니다. 접수 가능 시간은 영업일
+        09:00~17:30 기준이며, 공고별 별도 조건과 정정 여부는 모집공고 원문을 확인하세요.
+      </p>
 
       <section className="detail__table">
         {rows

@@ -1,15 +1,47 @@
 // 알림 권한 상태를 안내하고 허용을 유도하는 배너. 권한 없음은 숨기지 않고 크게 알린다.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PermissionState } from "../notify/notifications";
 import { notificationSupport, requestPermission } from "../notify/notifications";
 
-export function PermissionBanner({ compact = false }: { compact?: boolean }) {
-  const [state, setState] = useState<PermissionState>(() => notificationSupport());
+type Props = {
+  compact?: boolean;
+  hidePrompt?: boolean;
+  permission?: PermissionState;
+  onPermissionChange?: (state: PermissionState) => void;
+  onPermissionGranted?: () => void;
+};
+
+export function PermissionBanner({
+  compact = false,
+  hidePrompt = false,
+  permission,
+  onPermissionChange,
+  onPermissionGranted,
+}: Props) {
+  const [localState, setLocalState] = useState<PermissionState>(() => notificationSupport());
+  const state = permission ?? localState;
+
+  const updateState = (next: PermissionState) => {
+    setLocalState(next);
+    onPermissionChange?.(next);
+  };
+
+  useEffect(() => {
+    const syncPermission = () => {
+      const next = notificationSupport();
+      setLocalState(next);
+      onPermissionChange?.(next);
+    };
+    window.addEventListener("focus", syncPermission);
+    return () => window.removeEventListener("focus", syncPermission);
+  }, [onPermissionChange]);
 
   if (state === "granted") return null;
 
   const ask = async () => {
-    setState(await requestPermission());
+    const next = await requestPermission();
+    updateState(next);
+    if (next === "granted") onPermissionGranted?.();
   };
 
   if (state === "unsupported") {
@@ -34,6 +66,8 @@ export function PermissionBanner({ compact = false }: { compact?: boolean }) {
       </div>
     );
   }
+
+  if (hidePrompt) return null;
 
   return (
     <div className={`perm${compact ? " perm--compact" : ""}`}>
