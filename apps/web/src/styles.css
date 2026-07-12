@@ -90,16 +90,14 @@ a { color: inherit; }
 .notice-bar { margin: 0 0 14px; padding: 13px 15px; border-radius: 15px; background: var(--danger-soft); color: var(--danger); font-size: 14px; font-weight: 700; }
 .notice-bar--muted { margin-top: 18px; color: var(--muted); background: var(--surface-muted); font-weight: 500; }
 
-/* 필터 바: 폰에서 유형칩·지역·상태가 잘림/가로스크롤 없이 한 번에 보이도록 세로로 쌓는다. */
+/* 필터 바: 좁은 화면은 유형 2열, 넓은 화면은 유형 4열과 지역 선택을 한 줄에 정렬한다. */
 .filters { display: flex; flex-direction: column; gap: 13px; margin: 2px -20px 18px; padding: 0 20px; }
-.filters__advanced { order: 1; }
 .filters__row { display: flex; align-items: center; gap: 8px; }
-.filters__row--top { flex-wrap: wrap; row-gap: 10px; }
-.filters__chips { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 8px; min-width: 0; }
-.filters__select { flex: none; }
-.filters__select select { min-height: 48px; max-width: none; padding: 0 40px 0 16px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--surface); font-weight: 700; }
-.filters__toggle { display: none; }
-.chip { flex: none; min-height: 48px; padding: 0 18px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--surface); font-weight: 750; }
+.filters__row--top { flex-wrap: nowrap; }
+.filters__chips { display: grid; flex: 1 1 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.filters__select { flex: 0 0 148px; }
+.filters__select select { width: 100%; min-height: 48px; max-width: none; padding: 0 34px 0 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--surface); font-weight: 700; }
+.chip { width: 100%; min-width: 0; min-height: 48px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 14px; font-weight: 750; white-space: nowrap; }
 .chip--active { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); color: var(--accent-deep); background: var(--hero-strong); }
 .segmented { order: 2; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
 .segmented__item { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; border-radius: 999px; color: var(--muted); background: var(--surface-muted); font-weight: 750; white-space: nowrap; }
@@ -326,11 +324,11 @@ a { color: inherit; }
   .appbar__bom { height: .8em; }
   .appbar__tagline { margin-top: 2px; font-size: 13px; }
   .source { min-height: 42px; padding-inline: 11px; font-size: 13px; }
-  .filters { gap: 8px; margin-bottom: 12px; }
-  .filters__advanced { order: 3; }
-  .filters__toggle { order: 2; min-height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); font-weight: 800; }
-  .filters__toggle small { padding: 4px 8px; border-radius: 999px; color: var(--accent-deep); background: var(--hero-strong); font-size: 12px; font-weight: 800; }
-  .segmented { order: 1; }
+  .filters { gap: 10px; margin-bottom: 12px; }
+  .filters__row--top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .filters__chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filters__select { width: 100%; flex-basis: auto; }
+  .chip { font-size: 15px; }
   .notice-calendar { margin: 12px 0 10px; padding: 0; border-radius: 18px; box-shadow: 0 8px 20px rgba(92, 67, 44, .06); }
   .notice-calendar__summary { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; color: var(--ink); text-align: left; }
   .notice-calendar__summary > span:first-child { display: grid; gap: 1px; }
