@@ -343,3 +343,10 @@ a { color: inherit; }
   .opportunities { margin-top: 18px; }
   .section-heading h2 { font-size: 22px; }
 }
+
+@media (min-width: 600px) and (max-width: 699px) {
+  .filters__row--top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .filters__chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filters__select { width: 100%; flex-basis: auto; }
+  .chip { font-size: 15px; }
+}
