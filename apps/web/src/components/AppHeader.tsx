@@ -20,8 +20,11 @@ export function AppHeader({ title = "청약봄", source, action, compact = false
       </div>
       <div className="appbar__copy">
         <h1 className="appbar__title">
-          {title}
-          {title === "청약봄" && <span className="appbar__dot" aria-hidden="true" />}
+          {title === "청약봄" ? (
+            <span className="appbar__wordmark">청약<img className="appbar__bom" src="/bom-homebom.svg" alt="봄" /></span>
+          ) : (
+            title
+          )}
         </h1>
         {!compact && <p className="appbar__tagline">robom · 다시 없을 기회의 날</p>}
       </div>
