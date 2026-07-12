@@ -1,7 +1,9 @@
 // 청약홈 API 원시 응답 정규화 테스트.
 import { describe, expect, it } from "vitest";
 import {
+  buildNoticeIdentity,
   kstDateToUtcIso,
+  normalizeExternalUrl,
   normalizeRemndrItem,
   normalizeRemndrItems,
   normalizeYmd,
@@ -98,6 +100,42 @@ describe("normalizeRemndrItem", () => {
   it("공급규모가 숫자가 아니면 undefined", () => {
     const n = normalizeRemndrItem({ ...raw, TOT_SUPLY_HSHLDCO: "미정" }, VERIFIED);
     expect(n!.supplyCount).toBeUndefined();
+  });
+});
+
+describe("buildNoticeIdentity", () => {
+  it("두 번호가 있으면 기존 ID를 유지한다", () => {
+    expect(buildNoticeIdentity(raw, raw.HOUSE_NM, "2026-07-10").id).toBe("2026000001-1");
+  });
+
+  it("번호가 하나만 있으면 접수일을 포함한 안정 ID와 legacy ID를 만든다", () => {
+    expect(buildNoticeIdentity({ ...raw, PBLANC_NO: undefined }, raw.HOUSE_NM, "2026-07-10")).toEqual({
+      id: "manage-2026000001-2026-07-10",
+      legacyIds: ["2026000001-"],
+      manageNo: "2026000001",
+      pblancNo: "",
+    });
+  });
+
+  it("번호가 모두 없어도 같은 단지의 다른 공고가 충돌하지 않는다", () => {
+    const noNumbers = { ...raw, HOUSE_MANAGE_NO: undefined, PBLANC_NO: undefined };
+    const first = buildNoticeIdentity(noNumbers, raw.HOUSE_NM, "2026-07-10");
+    const second = buildNoticeIdentity({ ...noNumbers, RCRIT_PBLANC_DE: "2026-07-02" }, raw.HOUSE_NM, "2026-07-11");
+    expect(first.id).not.toBe("-");
+    expect(first.id).not.toBe(second.id);
+  });
+});
+
+describe("normalizeExternalUrl", () => {
+  it("www 주소는 https로 보정하고 http·https만 허용한다", () => {
+    expect(normalizeExternalUrl("www.applyhome.co.kr/path")).toBe("https://www.applyhome.co.kr/path");
+    expect(normalizeExternalUrl("http://example.com/a")).toBe("http://example.com/a");
+  });
+
+  it("스크립트·데이터·상대 URL과 제어문자를 거부한다", () => {
+    for (const value of ["javascript:alert(1)", "data:text/html,x", "/relative", "https://exa\u0000mple.com"]) {
+      expect(normalizeExternalUrl(value)).toBeUndefined();
+    }
   });
 });
 

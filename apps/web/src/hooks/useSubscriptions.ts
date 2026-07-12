@@ -3,7 +3,13 @@ import { useCallback, useState } from "react";
 import { DEFAULT_CLOSE_OFFSETS, DEFAULT_OPEN_OFFSETS } from "@zoopzoopcall/core";
 import type { AlertKind, Notice } from "@zoopzoopcall/core";
 import type { NoticeSnapshotMap, SubMap } from "../store/subscriptions";
-import { loadNoticeSnapshots, loadSubs, saveNoticeSnapshots, saveSubs } from "../store/subscriptions";
+import {
+  loadNoticeSnapshots,
+  loadSubs,
+  migrateLegacyNoticeKeys,
+  saveNoticeSnapshots,
+  saveSubs,
+} from "../store/subscriptions";
 
 export function useSubscriptions() {
   const [subs, setSubs] = useState<SubMap>(() => loadSubs());
@@ -46,17 +52,19 @@ export function useSubscriptions() {
 
   const syncNoticeSnapshots = useCallback(
     (notices: Notice[]) => {
-      const next = { ...noticeSnapshots };
+      const migrated = migrateLegacyNoticeKeys(notices, subs, noticeSnapshots);
+      if (migrated.changed) update(migrated.subs);
+      const next = { ...migrated.snapshots };
       let changed = false;
       for (const notice of notices) {
-        if (notice.id in subs && next[notice.id] !== notice) {
+        if (notice.id in migrated.subs && JSON.stringify(next[notice.id]) !== JSON.stringify(notice)) {
           next[notice.id] = notice;
           changed = true;
         }
       }
-      if (changed) updateNoticeSnapshots(next);
+      if (migrated.changed || changed) updateNoticeSnapshots(next);
     },
-    [noticeSnapshots, subs, updateNoticeSnapshots],
+    [noticeSnapshots, subs, update, updateNoticeSnapshots],
   );
 
   const toggleOffset = useCallback(

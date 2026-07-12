@@ -119,9 +119,38 @@ function findComplexProfile(houseName: string, address?: string) {
 function urlText(value: unknown): string | undefined {
   const out = text(value);
   if (!out) return undefined;
-  if (/^https?:\/\//i.test(out)) return out;
-  if (/^www\./i.test(out)) return `https://${out}`;
-  return out;
+  if (/[\u0000-\u001F\u007F]/.test(out)) return undefined;
+  const candidate = /^www\./i.test(out) ? `https://${out}` : out;
+  try {
+    const url = new URL(candidate);
+    if (!url.hostname || (url.protocol !== "https:" && url.protocol !== "http:")) return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function stableIdPart(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^0-9a-z가-힣_-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function noticeIdentity(raw: RawItem, houseName: string, receiptStartYmd: string) {
+  const manageNo = String(raw.HOUSE_MANAGE_NO ?? "").trim();
+  const pblancNo = String(raw.PBLANC_NO ?? "").trim();
+  const legacyId = `${manageNo}-${pblancNo}`;
+  if (manageNo && pblancNo) return { id: legacyId, legacyIds: undefined, manageNo, pblancNo };
+  const id = manageNo
+    ? `manage-${stableIdPart(manageNo)}-${receiptStartYmd}`
+    : pblancNo
+      ? `pblanc-${stableIdPart(pblancNo)}-${receiptStartYmd}`
+      : `notice-${stableIdPart(houseName)}-${normalizeYmd(raw.RCRIT_PBLANC_DE) ?? receiptStartYmd}-${receiptStartYmd}`;
+  return { id, legacyIds: legacyId ? [legacyId] : undefined, manageNo, pblancNo };
 }
 
 function positiveNumber(value: unknown): number | undefined {
@@ -206,8 +235,7 @@ function normalize(raw: RawItem, models: RawItem[], verifiedAt: string) {
   if (!houseName || !start || !end) return null;
   if (end < todayKst()) return null;
 
-  const manageNo = String(raw.HOUSE_MANAGE_NO ?? "");
-  const pblancNo = String(raw.PBLANC_NO ?? "");
+  const identity = noticeIdentity(raw, houseName, start);
   const profile = findComplexProfile(houseName, text(raw.HSSPLY_ADRES));
   const modelSummaries = normalizeModels(models);
   const prices = modelSummaries
@@ -215,9 +243,10 @@ function normalize(raw: RawItem, models: RawItem[], verifiedAt: string) {
     .filter((price): price is number => typeof price === "number");
 
   return {
-    id: `${manageNo}-${pblancNo}` || houseName,
-    manageNo,
-    pblancNo,
+    id: identity.id,
+    legacyIds: identity.legacyIds,
+    manageNo: identity.manageNo || undefined,
+    pblancNo: identity.pblancNo || undefined,
     type: resolveType(raw),
     officialTypeName: text(raw.HOUSE_SECD_NM),
     housingCategory: "아파트",

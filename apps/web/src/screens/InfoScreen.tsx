@@ -88,7 +88,7 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
 
       <section className="settings-section" aria-labelledby="legal-settings">
         <h2 id="legal-settings">서비스 정보</h2>
-        <a className="settings-row" href="https://robom.kr/privacy" target="_blank" rel="noreferrer">
+        <a className="settings-row" href="https://robom.kr/privacy/homebom" target="_blank" rel="noreferrer">
           <span><strong>개인정보처리방침</strong></span><b aria-hidden="true">›</b>
         </a>
         <a className="settings-row" href="https://robom.kr/terms" target="_blank" rel="noreferrer">
