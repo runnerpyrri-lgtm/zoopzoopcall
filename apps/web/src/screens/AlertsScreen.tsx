@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { Notice } from "@zoopzoopcall/core";
 import { formatKstDateTime } from "@zoopzoopcall/core";
 import { PermissionBanner } from "../components/PermissionBanner";
+import { AppHeader } from "../components/AppHeader";
 import { useNow } from "../hooks/useNow";
 import { collectPendingAlerts } from "../notify/scheduler";
 import type { NoticeSnapshotMap, SubMap } from "../store/subscriptions";
@@ -29,9 +30,7 @@ export function AlertsScreen({ notices, subs, noticeSnapshots }: Props) {
 
   return (
     <div className="screen">
-      <header className="masthead">
-        <h1 className="masthead__brand masthead__brand--sub">내 알림</h1>
-      </header>
+      <AppHeader title="내 알림" compact />
 
       <PermissionBanner />
 

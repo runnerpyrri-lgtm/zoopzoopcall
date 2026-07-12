@@ -63,7 +63,8 @@ export default function App() {
                 />
               }
             />
-            <Route path="/info" element={<InfoScreen source={source} />} />
+            <Route path="/info" element={<Navigate to="/settings" replace />} />
+            <Route path="/settings" element={<InfoScreen source={source} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
