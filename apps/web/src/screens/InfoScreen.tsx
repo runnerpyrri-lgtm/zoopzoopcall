@@ -1,15 +1,45 @@
-// 안내 화면. 서비스 소개·데이터 출처·홈 화면 추가 방법·실데이터 연결 안내.
+// 설정과 앱 정보를 한곳에서 제공하며 기존 안내 경로와 호환한다.
 import type { NoticeSource } from "../hooks/useNotices";
+import packageInfo from "../../package.json";
+import { AppHeader } from "../components/AppHeader";
+
+const APP_VERSION = packageInfo.version;
+const CONTACT = "hello.robom@gmail.com";
+
+function mailto(purpose: string): string {
+  const subject = `[청약봄] ${purpose} 문의 · v${APP_VERSION}`;
+  return `mailto:${CONTACT}?subject=${encodeURIComponent(subject)}`;
+}
 
 export function InfoScreen({ source }: { source: NoticeSource }) {
   return (
     <div className="screen">
-      <header className="masthead">
-        <h1 className="masthead__brand masthead__brand--sub">안내</h1>
-      </header>
+      <AppHeader title="설정" compact />
 
-      <section className="info-card">
-        <h2>청약봄은</h2>
+      <section className="settings-section" aria-labelledby="family-apps">
+        <h2 id="family-apps">다른 로봄 앱</h2>
+        <a className="settings-row" href="https://robom.kr/apps/outbom" target="_blank" rel="noreferrer">
+          <span><strong>야외봄</strong><small>바깥바람이 좋은 때</small></span>
+          <em>웹으로 이용</em>
+        </a>
+        <a className="settings-row" href="https://robom.kr/apps/runningbom" target="_blank" rel="noreferrer">
+          <span><strong>러닝봄</strong><small>출발선에 서는 날</small></span>
+          <em>웹으로 이용</em>
+        </a>
+      </section>
+
+      <section className="settings-section" aria-labelledby="contact-settings">
+        <h2 id="contact-settings">문의</h2>
+        <a className="settings-row" href={mailto("일반")}>
+          <span><strong>일반 문의</strong><small>{CONTACT}</small></span><b aria-hidden="true">›</b>
+        </a>
+        <a className="settings-row" href={mailto("광고·제휴")}>
+          <span><strong>광고·제휴 문의</strong><small>{CONTACT}</small></span><b aria-hidden="true">›</b>
+        </a>
+      </section>
+
+      <section className="info-card" aria-labelledby="about-homebom">
+        <h2 id="about-homebom">청약봄은</h2>
         <p>
           무순위·잔여세대·취소후재공급 청약 접수 시작과 마감 시간을 챙기기 위한 알림 서비스입니다.
         </p>
@@ -56,12 +86,27 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
         </ul>
       </section>
 
-      <p className="fineprint">
-        청약봄 ·{" "}
-        <a href="https://github.com/robom-labs/homebom" target="_blank" rel="noreferrer">
-          GitHub
+      <section className="settings-section" aria-labelledby="legal-settings">
+        <h2 id="legal-settings">서비스 정보</h2>
+        <a className="settings-row" href="https://robom.kr/privacy" target="_blank" rel="noreferrer">
+          <span><strong>개인정보처리방침</strong></span><b aria-hidden="true">›</b>
         </a>
-      </p>
+        <a className="settings-row" href="https://robom.kr/terms" target="_blank" rel="noreferrer">
+          <span><strong>이용약관</strong></span><b aria-hidden="true">›</b>
+        </a>
+        <a className="settings-row" href="https://github.com/robom-labs/homebom" target="_blank" rel="noreferrer">
+          <span><strong>오픈소스 라이선스</strong><small>사용한 소프트웨어와 소스 보기</small></span><b aria-hidden="true">›</b>
+        </a>
+        <a className="settings-row" href="https://robom.kr" target="_blank" rel="noreferrer">
+          <span><strong>robom.kr</strong><small>로봄 패밀리 공식 사이트</small></span><b aria-hidden="true">›</b>
+        </a>
+      </section>
+
+      <footer className="app-meta">
+        <strong>개발자 · 로봄</strong>
+        <span>청약봄 v{APP_VERSION}</span>
+        <span>공고 데이터 · 한국부동산원 청약홈</span>
+      </footer>
     </div>
   );
 }
