@@ -1,4 +1,5 @@
-// 유형·접수상태·지역 필터 바. 1줄 유형 칩 + 2줄 상태 세그먼트/지역으로 배치한다.
+// 유형·접수상태·지역 필터 바. 모바일은 고급 필터를 접어 공고 도달을 우선한다.
+import { useEffect, useState } from "react";
 import type { NoticeType } from "@zoopzoopcall/core";
 
 export type TypeFilter = NoticeType | "전체";
@@ -33,34 +34,60 @@ export function FilterBar({
   onStatusView,
   counts,
 }: Props) {
+  const [advancedOpen, setAdvancedOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 600,
+  );
+  const hasAdvancedFilter = activeType !== "전체" || region !== "전체";
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 600px)");
+    const openForDesktop = () => {
+      if (desktop.matches) setAdvancedOpen(true);
+    };
+    desktop.addEventListener("change", openForDesktop);
+    return () => desktop.removeEventListener("change", openForDesktop);
+  }, []);
+
   return (
     <div className="filters">
-      <div className="filters__row filters__row--top">
-        <div className="filters__chips" role="tablist" aria-label="공고 유형">
-          {TYPES.map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={activeType === t}
-              className={`chip${activeType === t ? " chip--active" : ""}`}
-              onClick={() => onType(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        <label className="filters__select">
-          <span className="sr-only">지역 선택</span>
-          <select value={region} onChange={(e) => onRegion(e.target.value)}>
-            <option value="전체">전체 지역</option>
-            {regions.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+      <div className="filters__advanced" id="advanced-filters" hidden={!advancedOpen}>
+        <div className="filters__row filters__row--top">
+          <div className="filters__chips" role="tablist" aria-label="공고 유형">
+            {TYPES.map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={activeType === t}
+                className={`chip${activeType === t ? " chip--active" : ""}`}
+                onClick={() => onType(t)}
+              >
+                {t}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+          <label className="filters__select">
+            <span className="sr-only">지역 선택</span>
+            <select value={region} onChange={(e) => onRegion(e.target.value)}>
+              <option value="전체">전체 지역</option>
+              {regions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
+      <button
+        type="button"
+        className="filters__toggle"
+        aria-expanded={advancedOpen}
+        aria-controls="advanced-filters"
+        onClick={() => setAdvancedOpen((value) => !value)}
+      >
+        <span>유형·지역 필터</span>
+        <small>{advancedOpen ? "접기" : hasAdvancedFilter ? "선택됨" : "보기"}</small>
+      </button>
       <div className="segmented" role="tablist" aria-label="접수 상태">
         {STATUS_VIEWS.map((s) => (
           <button
