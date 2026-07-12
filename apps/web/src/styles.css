@@ -77,6 +77,9 @@ a { color: inherit; }
 .appbar__title { font-size: clamp(27px, 8vw, 36px); line-height: 1.1; letter-spacing: -.04em; }
 .appbar--compact .appbar__title { font-size: 28px; }
 .appbar__dot { display: inline-block; width: 11px; height: 11px; margin-left: 8px; border-radius: 50%; background: var(--accent); vertical-align: .18em; }
+/* 로봄 패밀리 공통 "봄" 마크 — 마지막 봄만 커스텀 로고, 꽃은 패밀리 톤(청약=금) */
+.appbar__wordmark { display: inline-flex; align-items: center; gap: 2px; }
+.appbar__bom { height: .84em; width: auto; overflow: visible; }
 .appbar__tagline { margin-top: 8px; color: var(--muted); font-size: 15px; }
 .appbar__action { justify-self: end; }
 .source { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 18px; border-radius: 999px; white-space: nowrap; font-weight: 800; }
