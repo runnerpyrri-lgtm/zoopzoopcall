@@ -16,8 +16,10 @@ export type NoticeModelSummary = {
 };
 
 export type Notice = {
-  /** 청약홈 주택관리번호+공고번호 기반 고유 ID. */
+  /** 청약홈 번호 또는 공고 내용으로 만든 안정 ID. */
   id: string;
+  /** 안정 ID 도입 전 사용하던 ID. 기존 알림 저장값을 한 번 마이그레이션할 때만 쓴다. */
+  legacyIds?: string[];
   manageNo?: string;
   pblancNo?: string;
   type: NoticeType;

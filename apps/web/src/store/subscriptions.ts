@@ -18,12 +18,21 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
+function writeJson(key: string, value: unknown): boolean {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function loadSubs(): SubMap {
   return readJson<SubMap>(SUBS_KEY, {});
 }
 
 export function saveSubs(subs: SubMap): void {
-  localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
+  writeJson(SUBS_KEY, subs);
 }
 
 export function loadNoticeSnapshots(): NoticeSnapshotMap {
@@ -31,7 +40,7 @@ export function loadNoticeSnapshots(): NoticeSnapshotMap {
 }
 
 export function saveNoticeSnapshots(notices: NoticeSnapshotMap): void {
-  localStorage.setItem(NOTICE_SNAPSHOTS_KEY, JSON.stringify(notices));
+  writeJson(NOTICE_SNAPSHOTS_KEY, notices);
 }
 
 /** 발송된 알림 ID → 발송 시각(ms). 오래된 항목은 로드 시 정리한다. */
@@ -45,12 +54,34 @@ export function loadFired(): Record<string, number> {
       dirty = true;
     }
   }
-  if (dirty) localStorage.setItem(FIRED_KEY, JSON.stringify(fired));
+  if (dirty) writeJson(FIRED_KEY, fired);
   return fired;
 }
 
 export function markFired(id: string): void {
   const fired = readJson<Record<string, number>>(FIRED_KEY, {});
   fired[id] = Date.now();
-  localStorage.setItem(FIRED_KEY, JSON.stringify(fired));
+  writeJson(FIRED_KEY, fired);
+}
+
+export function migrateLegacyNoticeKeys(
+  notices: Notice[],
+  subs: SubMap,
+  snapshots: NoticeSnapshotMap,
+): { subs: SubMap; snapshots: NoticeSnapshotMap; changed: boolean } {
+  const nextSubs = { ...subs };
+  const nextSnapshots = { ...snapshots };
+  let changed = false;
+
+  for (const notice of notices) {
+    const legacyId = notice.legacyIds?.find((id) => id !== notice.id && id in nextSubs);
+    if (!legacyId) continue;
+    if (!(notice.id in nextSubs)) nextSubs[notice.id] = nextSubs[legacyId];
+    delete nextSubs[legacyId];
+    delete nextSnapshots[legacyId];
+    nextSnapshots[notice.id] = notice;
+    changed = true;
+  }
+
+  return { subs: nextSubs, snapshots: nextSnapshots, changed };
 }

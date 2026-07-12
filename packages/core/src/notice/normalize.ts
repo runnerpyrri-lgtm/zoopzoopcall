@@ -84,12 +84,48 @@ function optionalText(value: unknown): string | undefined {
   return text || undefined;
 }
 
-function optionalUrl(value: unknown): string | undefined {
+export function normalizeExternalUrl(value: unknown): string | undefined {
   const text = optionalText(value);
   if (!text) return undefined;
-  if (/^https?:\/\//i.test(text)) return text;
-  if (/^www\./i.test(text)) return `https://${text}`;
-  return text;
+  if (/[\u0000-\u001F\u007F]/.test(text)) return undefined;
+  const candidate = /^www\./i.test(text) ? `https://${text}` : text;
+  try {
+    const url = new URL(candidate);
+    if (!url.hostname || (url.protocol !== "https:" && url.protocol !== "http:")) return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function stableIdPart(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^0-9a-z가-힣_-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function buildNoticeIdentity(raw: RawRemndrItem, houseName: string, receiptStartYmd: string) {
+  const manageNo = String(raw.HOUSE_MANAGE_NO ?? "").trim();
+  const pblancNo = String(raw.PBLANC_NO ?? "").trim();
+  const legacyId = `${manageNo}-${pblancNo}`;
+  if (manageNo && pblancNo) return { id: legacyId, legacyIds: undefined, manageNo, pblancNo };
+
+  const id = manageNo
+    ? `manage-${stableIdPart(manageNo)}-${receiptStartYmd}`
+    : pblancNo
+      ? `pblanc-${stableIdPart(pblancNo)}-${receiptStartYmd}`
+      : `notice-${stableIdPart(houseName)}-${normalizeYmd(raw.RCRIT_PBLANC_DE) ?? receiptStartYmd}-${receiptStartYmd}`;
+
+  return {
+    id,
+    legacyIds: manageNo || pblancNo ? [legacyId] : undefined,
+    manageNo,
+    pblancNo,
+  };
 }
 
 function optionalPositiveNumber(value: unknown): number | undefined {
@@ -124,8 +160,7 @@ export function normalizeRemndrItem(
   const end = normalizeYmd(raw.SUBSCRPT_RCEPT_ENDDE);
   if (!houseName || !start || !end) return null;
 
-  const manageNo = String(raw.HOUSE_MANAGE_NO ?? "");
-  const pblancNo = String(raw.PBLANC_NO ?? "");
+  const identity = buildNoticeIdentity(raw, houseName, start);
   const supply = optionalPositiveNumber(raw.TOT_SUPLY_HSHLDCO);
   const profile = findComplexProfile(houseName, raw.HSSPLY_ADRES?.trim());
   const modelSummaries = normalizeRemndrModels(modelItems);
@@ -134,9 +169,10 @@ export function normalizeRemndrItem(
     .filter((price): price is number => typeof price === "number");
 
   return {
-    id: `${manageNo}-${pblancNo}` || houseName,
-    manageNo,
-    pblancNo,
+    id: identity.id,
+    legacyIds: identity.legacyIds,
+    manageNo: identity.manageNo || undefined,
+    pblancNo: identity.pblancNo || undefined,
     type: resolveNoticeType(raw),
     officialTypeName: raw.HOUSE_SECD_NM?.trim(),
     housingCategory: "아파트",
@@ -158,13 +194,13 @@ export function normalizeRemndrItem(
     winnerDate: raw.PRZWNER_PRESNATN_DE,
     contractStartDate: raw.CNTRCT_CNCLS_BGNDE,
     contractEndDate: raw.CNTRCT_CNCLS_ENDDE,
-    officialHomepageUrl: optionalUrl(raw.HMPG_ADRES),
+    officialHomepageUrl: normalizeExternalUrl(raw.HMPG_ADRES),
     businessOwnerName: raw.BSNS_MBY_NM?.trim(),
     contactPhone: raw.MDHS_TELNO?.trim(),
     moveInMonth: raw.MVN_PREARNGE_YM?.trim(),
     newspaperName: raw.NSPRC_NM?.trim(),
     applyHomeUrl: APPLY_HOME_URL,
-    noticeUrl: optionalUrl(raw.PBLANC_URL),
+    noticeUrl: normalizeExternalUrl(raw.PBLANC_URL),
     receiptNote: RECEIPT_NOTE,
     modelSummaries: modelSummaries.length > 0 ? modelSummaries : undefined,
     lastVerifiedAt: verifiedAt,
