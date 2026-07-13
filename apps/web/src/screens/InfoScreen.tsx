@@ -9,7 +9,7 @@ import { notificationSupport, requestPermission } from "../notify/notifications"
 const APP_VERSION = packageInfo.version;
 const CONTACT = "hello.robom@gmail.com";
 const BUILD_SHA = import.meta.env.VITE_BUILD_SHA || "local";
-const PWA_CACHE = "zzc-v17";
+const PWA_CACHE = "zzc-v18";
 
 function mailto(purpose: string): string {
   const subject = `[청약봄] ${purpose} 문의 · v${APP_VERSION}`;
@@ -52,7 +52,19 @@ const IC = {
   code: "m9 8-4.2 4L9 16m6-8 4.2 4L15 16",
   external: "M9 5H5v14h14v-4M14 4h6v6m0-6L10 14",
   chevron: "m9.5 6 6 6-6 6",
+  bell: "M12 3a6 6 0 0 0-6 6v3.6l-1.6 3.2a.7.7 0 0 0 .63 1.02h13.94a.7.7 0 0 0 .63-1.02L18 12.6V9a6 6 0 0 0-6-6Zm-2.3 15.5a2.4 2.4 0 0 0 4.6 0",
+  building: "M6 20.5V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v15.5M4 20.5h16M9.5 8h1.6m3.4 0h-1.6M9.5 11.5h1.6m3.4 0h-1.6M9.5 15h1.6m3.4 0h-1.6",
+  db: "M5 6.5c0-1.5 3.1-2.7 7-2.7s7 1.2 7 2.7-3.1 2.7-7 2.7-7-1.2-7-2.7Zm0 0v11c0 1.5 3.1 2.7 7 2.7s7-1.2 7-2.7v-11M5 12c0 1.5 3.1 2.7 7 2.7s7-1.2 7-2.7",
 } as const;
+
+function CardHead({ icon, title, id }: { icon: string; title: string; id: string }) {
+  return (
+    <div className="settings-card-head">
+      <span className="settings-chip" aria-hidden="true"><Ic d={icon} /></span>
+      <h3 id={id}>{title}</h3>
+    </div>
+  );
+}
 
 type RowProps = { href: string; icon: string; title: string; sub?: string; badge?: string; newTab?: boolean };
 function SettingsRow({ href, icon, title, sub, badge, newTab = true }: RowProps) {
@@ -85,7 +97,7 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       <AppHeader source={source} />
 
       <section className="settings-card" aria-labelledby="about-homebom">
-        <h3 id="about-homebom">청약봄은</h3>
+        <CardHead icon={IC.building} title="청약봄은" id="about-homebom" />
         <p className="settings-note">
           일반공급·특별공급·순위별 접수와 무순위·잔여세대·불법행위 재공급 일정을 함께 챙기는 알림
           서비스입니다.
@@ -98,7 +110,7 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       </section>
 
       <section className="settings-card" aria-labelledby="notify-env">
-        <h3 id="notify-env">알림 권한</h3>
+        <CardHead icon={IC.bell} title="알림 권한" id="notify-env" />
         <p className="settings-note">{permissionLabel}</p>
         <p className="settings-note">
           알림은 앱이 실행 중일 때 동작해요. 아이폰은 홈 화면에 추가한 아이콘(사파리 공유 → 홈
@@ -141,20 +153,20 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       </section>
 
       <section className="settings-card" aria-labelledby="family-apps">
-        <h3 id="family-apps">다른 로봄 앱</h3>
+        <CardHead icon={IC.house} title="다른 로봄 앱" id="family-apps" />
         <SettingsRow href="https://robom.kr/apps/outbom" icon={IC.house} title="야외봄" sub="날씨·대기질로 나가기 좋은 시간 알림" badge="웹으로 이용" />
         <SettingsRow href="https://robom.kr/apps/runningbom" icon={IC.house} title="러닝봄" sub="러닝 대회 접수 시작·마감 알림" badge="웹으로 이용" />
         <SettingsRow href="https://robom.kr" icon={IC.external} title="로봄 홈페이지" sub="robom.kr" />
       </section>
 
       <section className="settings-card" aria-labelledby="contact-settings">
-        <h3 id="contact-settings">문의</h3>
+        <CardHead icon={IC.mail} title="문의" id="contact-settings" />
         <SettingsRow href={mailto("일반")} icon={IC.mail} title="일반 문의" sub={CONTACT} newTab={false} />
         <SettingsRow href={mailto("광고·제휴")} icon={IC.spark} title="광고·제휴 문의" sub="앱명·용도·버전이 제목에 포함돼요." newTab={false} />
       </section>
 
       <section className="settings-card" aria-labelledby="data-source">
-        <h3 id="data-source">데이터 출처</h3>
+        <CardHead icon={IC.db} title="데이터 출처" id="data-source" />
         <p className="settings-note">
           공공데이터포털의 <strong>한국부동산원 청약홈 분양정보 조회 서비스</strong>를 사용합니다.
           {source === "not-connected" && <> 실공고 연결이 완료되지 않은 상태에서는 임의 공고를 표시하지 않습니다.</>}
@@ -164,7 +176,7 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       </section>
 
       <section className="settings-card" aria-labelledby="legal-settings">
-        <h3 id="legal-settings">정책과 정보</h3>
+        <CardHead icon={IC.shield} title="정책과 정보" id="legal-settings" />
         <SettingsRow href="https://robom.kr/privacy/homebom" icon={IC.shield} title="개인정보처리방침" />
         <SettingsRow href="https://robom.kr/terms" icon={IC.file} title="이용약관" />
         <SettingsRow href="https://github.com/robom-labs/homebom" icon={IC.code} title="오픈소스 라이선스" />
