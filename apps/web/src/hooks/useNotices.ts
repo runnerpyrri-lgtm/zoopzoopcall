@@ -1,15 +1,16 @@
 // 공고 데이터를 실공고 프록시(VITE_NOTICES_URL)에서만 로드하는 훅.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { enrichNoticeWithComplexProfile, sanitizeNoticeUrls, type Notice } from "@zoopzoopcall/core";
+import { parseNoticeList, sanitizeNoticeUrls, type Notice } from "@zoopzoopcall/core";
 
 // 서버가 고쳐지기 전 저장된 캐시나 구버전 응답의 깨진 외부 링크(`&amp;`)까지
 // 렌더 전에 복구한다.
 function prepareNotice(notice: Notice): Notice {
-  return sanitizeNoticeUrls(enrichNoticeWithComplexProfile(notice));
+  return sanitizeNoticeUrls(notice);
 }
 
 export type NoticeSource = "live" | "stale" | "not-connected";
 const LKG_KEY = "homebom:notices:lkg:v1";
+export const LKG_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
 type LastKnownGood = { notices: Notice[]; verifiedAt: string | null; savedAt: string };
 
@@ -18,7 +19,19 @@ export function loadLastKnownNotices(): LastKnownGood | null {
     const raw = globalThis.localStorage?.getItem(LKG_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LastKnownGood;
-    return Array.isArray(parsed.notices) && typeof parsed.savedAt === "string" ? parsed : null;
+    if (!Array.isArray(parsed.notices) || typeof parsed.savedAt !== "string") return null;
+    if (!Number.isFinite(Date.parse(parsed.savedAt)) || Date.now() - Date.parse(parsed.savedAt) > LKG_MAX_AGE_MS) {
+      globalThis.localStorage?.removeItem(LKG_KEY);
+      return null;
+    }
+    const validated = parseNoticeList(parsed.notices);
+    const notices = validated.notices.filter(isActiveNotice).map(prepareNotice);
+    if (validated.rejected.length > 0) console.warn("HomeBom LKG rejected rows", validated.rejected);
+    if (notices.length === 0) {
+      globalThis.localStorage?.removeItem(LKG_KEY);
+      return null;
+    }
+    return { notices, savedAt: parsed.savedAt, verifiedAt: typeof parsed.verifiedAt === "string" ? parsed.verifiedAt : null };
   } catch {
     return null;
   }
@@ -26,11 +39,18 @@ export function loadLastKnownNotices(): LastKnownGood | null {
 
 export function saveLastKnownNotices(value: LastKnownGood): boolean {
   try {
-    globalThis.localStorage?.setItem(LKG_KEY, JSON.stringify(value));
+    const validated = parseNoticeList(value.notices);
+    const notices = validated.notices.filter(isActiveNotice).map(prepareNotice);
+    if (notices.length === 0) return false;
+    globalThis.localStorage?.setItem(LKG_KEY, JSON.stringify({ ...value, notices }));
     return true;
   } catch {
     return false;
   }
+}
+
+function isActiveNotice(notice: Notice): boolean {
+  return notice.cancelled !== true && Date.parse(notice.receiptEnd) >= Date.now();
 }
 
 export function noticeResponseMeta(headers: Headers): {
@@ -70,12 +90,16 @@ export function useNotices() {
     const timeout = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(liveUrl, { signal: controller.signal });
-      const data = (await res.json()) as Notice[] | { error?: string };
+      const data = await res.json() as unknown;
       if (!res.ok || !Array.isArray(data)) {
-        throw new Error(Array.isArray(data) ? `HTTP ${res.status}` : data.error || `HTTP ${res.status}`);
+        const message = typeof data === "object" && data !== null && "error" in data ? String(data.error) : `HTTP ${res.status}`;
+        throw new Error(message);
       }
       const meta = noticeResponseMeta(res.headers);
-      const normalized = data.map(prepareNotice);
+      const parsed = parseNoticeList(data);
+      if (parsed.rejected.length > 0) console.warn("HomeBom API rejected rows", parsed.rejected);
+      const normalized = parsed.notices.filter(isActiveNotice).map(prepareNotice);
+      if (data.length > 0 && normalized.length === 0) throw new Error("검증을 통과한 접수 가능 공고가 없습니다.");
       setNotices(normalized);
       setSource(meta.source);
       setVerifiedAt(meta.verifiedAt);

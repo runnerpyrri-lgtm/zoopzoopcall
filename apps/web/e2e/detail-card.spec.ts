@@ -42,7 +42,7 @@ const notice = {
     priceMax: 224000,
   }],
   events: [
-    { id: "receipt", kind: "no-priority", label: "무순위·재공급 접수", start: receiptStart, end: receiptEnd, confirmed: true },
+    { id: "receipt", kind: "no-priority", label: "무순위·재공급 접수", start: receiptStart, end: receiptEnd, confirmed: true, timeSource: "official", startTimeConfirmed: true, endTimeConfirmed: true },
     { id: "winner", kind: "winner", label: "당첨자 발표", start: "2026-07-20T00:00:00+09:00", confirmed: true },
     { id: "contract", kind: "contract", label: "계약", start: "2026-07-24T09:00:00+09:00", end: "2026-07-26T17:30:00+09:00", confirmed: true },
   ],
@@ -52,7 +52,7 @@ const notice = {
     selectionMethod: "100% 추첨",
     applicantQualification: "무주택·유주택 여부와 거주지역 조건을 포함한 아주 긴 신청 자격 문장도 값 전체 폭에서 자연스럽게 줄바꿈되어야 합니다.",
     transferRestriction: "없음",
-    residenceRequirement: "공고문 확인",
+    residenceRequirement: "없음",
     rewinningRestriction: "미적용",
     constructionCompanyName: "아주 긴 시공사 이름 건설 주식회사",
     paymentSchedule: [

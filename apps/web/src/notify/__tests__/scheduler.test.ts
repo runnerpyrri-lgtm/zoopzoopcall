@@ -12,6 +12,16 @@ const makeNotice = (overrides: Partial<Notice> & { id: string }): Notice => ({
   receiptEnd: "2026-07-10T08:30:00.000Z", // KST 7/10 17:30
   applyHomeUrl: "https://www.applyhome.co.kr",
   lastVerifiedAt: "2026-07-01T00:00:00.000Z",
+  events: [{
+    kind: "no-priority",
+    label: "접수",
+    start: "2026-07-10T00:00:00.000Z",
+    end: "2026-07-10T08:30:00.000Z",
+    timeSource: "official",
+    startTimeConfirmed: true,
+    endTimeConfirmed: true,
+    confirmed: true,
+  }],
   ...overrides,
 });
 

@@ -3,7 +3,7 @@ import type { NoticeType } from "@zoopzoopcall/core";
 import type { EventFilter } from "./noticeSchedule";
 
 export type TypeFilter = NoticeType | "전체";
-export type StatusView = "접수중" | "접수예정" | "마감·취소";
+export type StatusView = "접수중" | "접수예정";
 
 type Props = {
   activeType: TypeFilter;
@@ -29,11 +29,10 @@ const TYPE_LABEL: Record<TypeFilter, string> = {
   취소후재공급: "취소 재공급",
 };
 const EVENT_FILTERS: EventFilter[] = ["전체", "특별공급", "1순위", "2순위", "무순위·잔여", "재공급", "발표·계약"];
-const STATUS_VIEWS: StatusView[] = ["접수중", "접수예정", "마감·취소"];
+const STATUS_VIEWS: StatusView[] = ["접수중", "접수예정"];
 const STATUS_LABEL: Record<StatusView, string> = {
   접수중: "접수 중",
   접수예정: "접수 예정",
-  "마감·취소": "마감·취소",
 };
 
 export function FilterBar({

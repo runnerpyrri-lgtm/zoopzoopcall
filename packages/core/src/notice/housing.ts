@@ -37,6 +37,6 @@ export function formatHouseholdSummary(
 
   if (total && supply) return `총 ${number(total)}세대 중 이번 모집 ${number(supply)}세대`;
   if (total) return `단지 전체 ${number(total)}세대`;
-  if (supply) return `총 세대수 공고문 확인 · 이번 모집 ${number(supply)}세대`;
-  return "전체·모집 세대수 공고문 확인";
+  if (supply) return `이번 모집 ${number(supply)}세대`;
+  return "";
 }

@@ -1,4 +1,4 @@
-// 공고 목록 화면. 유형·지역 필터 + 접수중/예정/마감·취소 상태를 골라 본다.
+// 공고 목록 화면. 현재 접수 가능한 공고의 유형·지역·접수 상태를 골라 본다.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationEvent, Notice } from "@zoopzoopcall/core";
@@ -9,7 +9,6 @@ import { NoticeCard } from "../components/NoticeCard";
 import { NoticeCalendar } from "../components/NoticeCalendar";
 import { PermissionBanner } from "../components/PermissionBanner";
 import { compareScheduleEvents, eventsOnDate, noticeMatchesEventFilter, type EventFilter } from "../components/noticeSchedule";
-import { noticeSchedule } from "../components/noticeSchedule";
 import { useNow } from "../hooks/useNow";
 import type { NoticeSource } from "../hooks/useNotices";
 import type { SubMap } from "../store/subscriptions";
@@ -23,11 +22,10 @@ type Props = {
   subs: SubMap;
 };
 
-const STATUS_ORDER: StatusView[] = ["접수중", "접수예정", "마감·취소"];
+const STATUS_ORDER: StatusView[] = ["접수중", "접수예정"];
 const HEADING: Record<StatusView, string> = {
   접수중: "지금 접수 중",
   접수예정: "접수 예정",
-  "마감·취소": "마감·취소",
 };
 
 export function ListScreen({ notices, source, error, loading, verifiedAt, subs }: Props) {
@@ -43,10 +41,7 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
 
   const visibleNotices = useMemo(() => {
     const nextMonthEnd = kstMonthWindowEnd(now);
-    return notices.filter((notice) => {
-      if (getNoticeStatus(notice, now) === "접수중") return true;
-      return noticeSchedule(notice).some((event) => Date.parse(event.start) <= nextMonthEnd && Date.parse(event.end ?? event.start) >= now);
-    });
+    return notices.filter((notice) => notice.cancelled !== true && Date.parse(notice.receiptEnd) >= now && Date.parse(notice.receiptStart) <= nextMonthEnd);
   }, [notices, now]);
 
   const regions = useMemo(
@@ -72,17 +67,13 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
     const 접수예정 = filtered
       .filter((n) => ["예정", "정정"].includes(getNoticeStatus(n, now)))
       .sort((a, b) => Date.parse(a.receiptStart) - Date.parse(b.receiptStart));
-    const 마감취소 = filtered
-      .filter((n) => ["마감", "취소"].includes(getNoticeStatus(n, now)))
-      .sort((a, b) => Date.parse(b.receiptEnd) - Date.parse(a.receiptEnd));
-    return { 접수중, 접수예정, "마감·취소": 마감취소 } as Record<StatusView, Notice[]>;
+    return { 접수중, 접수예정 } as Record<StatusView, Notice[]>;
   }, [filtered, now]);
 
   const counts = useMemo(
     () => ({
       접수중: groups["접수중"].length,
       접수예정: groups["접수예정"].length,
-      "마감·취소": groups["마감·취소"].length,
     }),
     [groups],
   );
@@ -159,7 +150,7 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
             <div className="day-agenda__item" key={`${notice.id}-${event.id ?? `${event.kind}-${event.start}`}`}>
               <span>{event.label}</span>
               <strong>{notice.houseName}</strong>
-              <small>{notice.region} · {notice.supplyCount != null ? `${notice.supplyCount.toLocaleString("ko-KR")}세대` : "모집 세대 공고문 확인"}</small>
+              <small>{notice.region}{notice.supplyCount != null ? ` · ${notice.supplyCount.toLocaleString("ko-KR")}세대` : ""}</small>
               <time dateTime={event.start}>{formatKstDateTime(event.start)}{event.end && event.end !== event.start ? ` ~ ${formatKstDateTime(event.end)}` : ""}</time>
               <div className="day-agenda__actions">
                 {/* HashRouter 앱이므로 path 하드코딩(/homebom/…)은 풀 페이지 이동 → GitHub Pages 404가 된다. */}

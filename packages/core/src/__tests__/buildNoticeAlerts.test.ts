@@ -18,6 +18,16 @@ const notice: Notice = {
   receiptEnd: "2026-07-10T08:30:00.000Z", // KST 7/10 17:30
   applyHomeUrl: "https://www.applyhome.co.kr",
   lastVerifiedAt: "2026-07-01T00:00:00.000Z",
+  events: [{
+    kind: "no-priority",
+    label: "무순위 접수",
+    start: "2026-07-10T00:00:00.000Z",
+    end: "2026-07-10T08:30:00.000Z",
+    timeSource: "official",
+    startTimeConfirmed: true,
+    endTimeConfirmed: true,
+    confirmed: true,
+  }],
 };
 
 const T = (iso: string) => Date.parse(iso);
@@ -39,6 +49,7 @@ describe("buildEventAlerts", () => {
       kind: "special" as const,
       label: "특별공급",
       start: "2026-07-10T00:00:00.000Z",
+      startTimeConfirmed: true,
       sourceField: "SPSPLY_RCEPT_BGNDE",
     }];
     const alerts = buildEventAlerts(notice, events, T("2026-07-01T00:00:00Z"));
@@ -90,5 +101,11 @@ describe("buildNoticeAlerts", () => {
         body: a.body,
       })),
     ).toMatchSnapshot();
+  });
+
+  it("날짜만 확인된 공고는 확정 시각 알림을 예약하지 않는다", () => {
+    const dateOnly = { ...notice, events: notice.events?.map((event) => ({ ...event, confirmed: false, startTimeConfirmed: false, endTimeConfirmed: false, timeSource: "date-only" as const })) };
+    expect(buildNoticeAlerts(dateOnly, "open", DEFAULT_OPEN_OFFSETS, T("2026-07-01T00:00:00Z"))).toEqual([]);
+    expect(buildEventAlerts(dateOnly, dateOnly.events ?? [], T("2026-07-01T00:00:00Z"))).toEqual([]);
   });
 });

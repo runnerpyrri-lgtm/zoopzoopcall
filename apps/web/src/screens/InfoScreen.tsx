@@ -9,7 +9,7 @@ import { notificationSupport, requestPermission } from "../notify/notifications"
 const APP_VERSION = packageInfo.version;
 const CONTACT = "hello.robom@gmail.com";
 const BUILD_SHA = import.meta.env.VITE_BUILD_SHA || "local";
-const PWA_CACHE = "zzc-v20";
+const PWA_CACHE = "zzc-v22";
 
 function mailto(purpose: string): string {
   const subject = `[청약봄] ${purpose} 문의 · v${APP_VERSION}`;
@@ -118,6 +118,7 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
           <a href="https://www.applyhome.co.kr" target="_blank" rel="noreferrer">청약홈(applyhome.co.kr)</a>
           에서 직접 진행하셔야 합니다.
         </p>
+        <p className="settings-note">청약 정보는 정정될 수 있으니, 신청 전 청약홈에서 최종 내용을 한 번 더 확인해 주세요.</p>
       </section>
 
       <section className="settings-card" aria-labelledby="notify-env">

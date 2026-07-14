@@ -38,7 +38,13 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Test
+      - name: Diff check
+        run: git diff --check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit test
         run: pnpm test
 
       - name: Build (base "/homebom/" 유지)
@@ -46,8 +52,20 @@ jobs:
           VITE_BUILD_SHA: ${{ github.sha }}
         run: pnpm -r build
 
+      - name: Install Playwright Chromium
+        run: pnpm --filter @zoopzoopcall/web exec playwright install --with-deps chromium
+
+      - name: Browser regression test
+        run: pnpm test:e2e
+
       - name: base path 유지 검증 (깨졌으면 배포 중단)
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
+
+      - name: 서비스워커 문법 검증
+        run: node --check apps/web/public/sw.js
+
+      - name: 공개 API 계약 검증
+        run: node scripts/validate-notices-response.mjs
 
       - name: Deploy apps/web/dist to gh-pages
         uses: peaceiris/actions-gh-pages@v4

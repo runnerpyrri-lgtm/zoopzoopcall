@@ -63,7 +63,16 @@ function allDayEvent(
   if (!value) return null;
   const start = new Date(`${value.slice(0, 10)}T00:00:00+09:00`).toISOString();
   const end = new Date(`${(endValue ?? value).slice(0, 10)}T23:59:00+09:00`).toISOString();
-  return { kind, label, start, end };
+  return {
+    kind,
+    label,
+    start,
+    end,
+    confirmed: false,
+    timeSource: "date-only",
+    startTimeConfirmed: false,
+    endTimeConfirmed: false,
+  };
 }
 
 export function noticeSchedule(notice: Notice): ApplicationEvent[] {
@@ -74,6 +83,10 @@ export function noticeSchedule(notice: Notice): ApplicationEvent[] {
       label: notice.type === "일반공급" ? "전체 접수 기간" : "무순위·잔여 접수",
       start: notice.receiptStart,
       end: notice.receiptEnd,
+      confirmed: false,
+      timeSource: "date-only" as const,
+      startTimeConfirmed: false,
+      endTimeConfirmed: false,
     },
     allDayEvent("winner", "당첨자 발표", notice.winnerDate),
     allDayEvent("contract", "계약", notice.contractStartDate, notice.contractEndDate),
@@ -88,6 +101,9 @@ export function noticeSchedule(notice: Notice): ApplicationEvent[] {
       noticeId: item.noticeId || notice.id,
       regionScope: item.regionScope || "not-applicable" as const,
       confirmed: item.confirmed ?? false,
+      timeSource: item.timeSource ?? "date-only",
+      startTimeConfirmed: item.startTimeConfirmed ?? false,
+      endTimeConfirmed: item.endTimeConfirmed ?? false,
     }))
     .sort((a, b) => compareScheduleEvents(a, b, notice, notice));
 }

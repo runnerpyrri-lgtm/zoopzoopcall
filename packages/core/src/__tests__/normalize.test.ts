@@ -67,8 +67,8 @@ describe("normalizeAptItem", () => {
     );
 
     expect(notice?.type).toBe("일반공급");
-    expect(notice?.receiptStart).toBe("2026-07-10T00:00:00.000Z");
-    expect(notice?.receiptEnd).toBe("2026-07-12T08:30:00.000Z");
+    expect(notice?.receiptStart).toBe("2026-07-09T15:00:00.000Z");
+    expect(notice?.receiptEnd).toBe("2026-07-12T14:59:00.000Z");
     expect(notice?.events?.map((item) => item.label)).toEqual(
       expect.arrayContaining(["특별공급", "1순위 해당지역", "2순위 기타지역", "당첨자 발표", "계약"]),
     );
@@ -78,6 +78,7 @@ describe("normalizeAptItem", () => {
     expect(notice?.modelSummaries?.[0].specialSupply?.newborn).toBe(2);
     expect(notice?.events?.every((item) => item.id?.startsWith(`${notice.id}:`))).toBe(true);
     expect(notice?.events?.find((item) => item.kind === "rank1")?.regionScope).toBe("local");
+    expect(notice?.events?.every((item) => item.confirmed === false && item.timeSource === "date-only")).toBe(true);
   });
 
   it("접수 일정이 전혀 없는 APT 공고는 제외한다", () => {
@@ -122,7 +123,7 @@ describe("resolveNoticeType", () => {
 });
 
 describe("normalizeRemndrItem", () => {
-  it("정상 아이템을 Notice로 변환하고 기본 접수 시각(09:00~17:30 KST)을 적용한다", () => {
+  it("날짜만 받은 공고를 확정 시각으로 위장하지 않고 해당 KST 날짜 전체로 보존한다", () => {
     const n = normalizeRemndrItem(raw, VERIFIED);
     expect(n).not.toBeNull();
     expect(n!.id).toBe("2026000001-1");
@@ -131,12 +132,13 @@ describe("normalizeRemndrItem", () => {
     expect(n!.houseName).toBe("행복마을 어울림");
     expect(n!.region).toBe("경기");
     expect(n!.supplyCount).toBe(12);
-    expect(n!.receiptStart).toBe("2026-07-10T00:00:00.000Z");
-    expect(n!.receiptEnd).toBe("2026-07-10T08:30:00.000Z");
+    expect(n!.receiptStart).toBe("2026-07-09T15:00:00.000Z");
+    expect(n!.receiptEnd).toBe("2026-07-10T14:59:00.000Z");
     expect(n!.lastVerifiedAt).toBe(VERIFIED);
     expect(n!.events?.find((item) => item.kind === "no-priority")?.id).toBe(
       "2026000001-1:SUBSCRPT_RCEPT_BGNDE",
     );
+    expect(n!.events?.find((item) => item.kind === "no-priority")?.startTimeConfirmed).toBe(false);
   });
 
   it("접수일이 YYYYMMDD로 와도 동일하게 변환한다", () => {
@@ -144,8 +146,8 @@ describe("normalizeRemndrItem", () => {
       { ...raw, SUBSCRPT_RCEPT_BGNDE: "20260710", SUBSCRPT_RCEPT_ENDDE: "20260710" },
       VERIFIED,
     );
-    expect(n!.receiptStart).toBe("2026-07-10T00:00:00.000Z");
-    expect(n!.receiptEnd).toBe("2026-07-10T08:30:00.000Z");
+    expect(n!.receiptStart).toBe("2026-07-09T15:00:00.000Z");
+    expect(n!.receiptEnd).toBe("2026-07-10T14:59:00.000Z");
   });
 
   it("단지명이나 접수일이 없으면 null", () => {

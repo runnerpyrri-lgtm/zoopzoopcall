@@ -6,7 +6,6 @@ import type {
   NoticeModelSummary,
   NoticeType,
 } from "./types";
-import { findComplexProfile } from "./complexProfiles";
 
 /**
  * getRemndrLttotPblancDetail 응답 아이템.
@@ -261,7 +260,10 @@ function event(
     regionScope,
     start: kstDateToUtcIso(start, startTime),
     end: kstDateToUtcIso(end, endTime),
-    confirmed: true,
+    timeSource: "date-only",
+    startTimeConfirmed: false,
+    endTimeConfirmed: false,
+    confirmed: false,
     sourceField,
   };
 }
@@ -296,25 +298,25 @@ function withoutReceiptSummaryWhenDetailed(events: Array<ApplicationEvent | null
 export function buildRemndrEvents(raw: RawRemndrItem, noticeId?: string): ApplicationEvent[] {
   return identifyEvents(dedupeEvents([
     event("announce", "모집공고", raw.RCRIT_PBLANC_DE, raw.RCRIT_PBLANC_DE, "00:00", "23:59", "RCRIT_PBLANC_DE"),
-    event("no-priority", "무순위·잔여 접수", raw.SUBSCRPT_RCEPT_BGNDE, raw.SUBSCRPT_RCEPT_ENDDE, "09:00", "17:30", "SUBSCRPT_RCEPT_BGNDE", "all"),
+    event("no-priority", "무순위·잔여 접수", raw.SUBSCRPT_RCEPT_BGNDE, raw.SUBSCRPT_RCEPT_ENDDE, "00:00", "23:59", "SUBSCRPT_RCEPT_BGNDE", "all"),
     event("winner", "당첨자 발표", raw.PRZWNER_PRESNATN_DE, raw.PRZWNER_PRESNATN_DE, "00:00", "23:59", "PRZWNER_PRESNATN_DE"),
-    event("contract", "계약", raw.CNTRCT_CNCLS_BGNDE, raw.CNTRCT_CNCLS_ENDDE, "09:00", "17:30", "CNTRCT_CNCLS_BGNDE"),
+    event("contract", "계약", raw.CNTRCT_CNCLS_BGNDE, raw.CNTRCT_CNCLS_ENDDE, "00:00", "23:59", "CNTRCT_CNCLS_BGNDE"),
   ]), noticeId);
 }
 
 export function buildAptEvents(raw: RawAptItem, noticeId?: string): ApplicationEvent[] {
   return identifyEvents(dedupeEvents(withoutReceiptSummaryWhenDetailed([
     event("announce", "모집공고", raw.RCRIT_PBLANC_DE, raw.RCRIT_PBLANC_DE, "00:00", "23:59", "RCRIT_PBLANC_DE"),
-    event("receipt", "전체 접수 기간", raw.RCEPT_BGNDE, raw.RCEPT_ENDDE, "09:00", "17:30", "RCEPT_BGNDE", "all"),
-    event("special", "특별공급", raw.SPSPLY_RCEPT_BGNDE, raw.SPSPLY_RCEPT_ENDDE, "09:00", "17:30", "SPSPLY_RCEPT_BGNDE", "all"),
-    event("rank1", "1순위 해당지역", raw.GNRL_RNK1_CRSPAREA_RCPTDE, raw.GNRL_RNK1_CRSPAREA_ENDDE, "09:00", "17:30", "GNRL_RNK1_CRSPAREA_RCPTDE", "local"),
-    event("rank1", "1순위 경기지역", raw.GNRL_RNK1_ETC_GG_RCPTDE, raw.GNRL_RNK1_ETC_GG_ENDDE, "09:00", "17:30", "GNRL_RNK1_ETC_GG_RCPTDE", "gyeonggi"),
-    event("rank1", "1순위 기타지역", raw.GNRL_RNK1_ETC_AREA_RCPTDE, raw.GNRL_RNK1_ETC_AREA_ENDDE, "09:00", "17:30", "GNRL_RNK1_ETC_AREA_RCPTDE", "other"),
-    event("rank2", "2순위 해당지역", raw.GNRL_RNK2_CRSPAREA_RCPTDE, raw.GNRL_RNK2_CRSPAREA_ENDDE, "09:00", "17:30", "GNRL_RNK2_CRSPAREA_RCPTDE", "local"),
-    event("rank2", "2순위 경기지역", raw.GNRL_RNK2_ETC_GG_RCPTDE, raw.GNRL_RNK2_ETC_GG_ENDDE, "09:00", "17:30", "GNRL_RNK2_ETC_GG_RCPTDE", "gyeonggi"),
-    event("rank2", "2순위 기타지역", raw.GNRL_RNK2_ETC_AREA_RCPTDE, raw.GNRL_RNK2_ETC_AREA_ENDDE, "09:00", "17:30", "GNRL_RNK2_ETC_AREA_RCPTDE", "other"),
+    event("receipt", "전체 접수 기간", raw.RCEPT_BGNDE, raw.RCEPT_ENDDE, "00:00", "23:59", "RCEPT_BGNDE", "all"),
+    event("special", "특별공급", raw.SPSPLY_RCEPT_BGNDE, raw.SPSPLY_RCEPT_ENDDE, "00:00", "23:59", "SPSPLY_RCEPT_BGNDE", "all"),
+    event("rank1", "1순위 해당지역", raw.GNRL_RNK1_CRSPAREA_RCPTDE, raw.GNRL_RNK1_CRSPAREA_ENDDE, "00:00", "23:59", "GNRL_RNK1_CRSPAREA_RCPTDE", "local"),
+    event("rank1", "1순위 경기지역", raw.GNRL_RNK1_ETC_GG_RCPTDE, raw.GNRL_RNK1_ETC_GG_ENDDE, "00:00", "23:59", "GNRL_RNK1_ETC_GG_RCPTDE", "gyeonggi"),
+    event("rank1", "1순위 기타지역", raw.GNRL_RNK1_ETC_AREA_RCPTDE, raw.GNRL_RNK1_ETC_AREA_ENDDE, "00:00", "23:59", "GNRL_RNK1_ETC_AREA_RCPTDE", "other"),
+    event("rank2", "2순위 해당지역", raw.GNRL_RNK2_CRSPAREA_RCPTDE, raw.GNRL_RNK2_CRSPAREA_ENDDE, "00:00", "23:59", "GNRL_RNK2_CRSPAREA_RCPTDE", "local"),
+    event("rank2", "2순위 경기지역", raw.GNRL_RNK2_ETC_GG_RCPTDE, raw.GNRL_RNK2_ETC_GG_ENDDE, "00:00", "23:59", "GNRL_RNK2_ETC_GG_RCPTDE", "gyeonggi"),
+    event("rank2", "2순위 기타지역", raw.GNRL_RNK2_ETC_AREA_RCPTDE, raw.GNRL_RNK2_ETC_AREA_ENDDE, "00:00", "23:59", "GNRL_RNK2_ETC_AREA_RCPTDE", "other"),
     event("winner", "당첨자 발표", raw.PRZWNER_PRESNATN_DE, raw.PRZWNER_PRESNATN_DE, "00:00", "23:59", "PRZWNER_PRESNATN_DE"),
-    event("contract", "계약", raw.CNTRCT_CNCLS_BGNDE, raw.CNTRCT_CNCLS_ENDDE, "09:00", "17:30", "CNTRCT_CNCLS_BGNDE"),
+    event("contract", "계약", raw.CNTRCT_CNCLS_BGNDE, raw.CNTRCT_CNCLS_ENDDE, "00:00", "23:59", "CNTRCT_CNCLS_BGNDE"),
   ])), noticeId);
 }
 
@@ -335,7 +337,6 @@ export function normalizeRemndrItem(
 
   const identity = buildNoticeIdentity(raw, houseName, start);
   const supply = optionalPositiveNumber(raw.TOT_SUPLY_HSHLDCO);
-  const profile = findComplexProfile(houseName, raw.HSSPLY_ADRES?.trim());
   const modelSummaries = normalizeRemndrModels(modelItems);
   const events = buildRemndrEvents(raw, identity.id);
   const prices = modelSummaries
@@ -356,15 +357,12 @@ export function normalizeRemndrItem(
     regionCode: raw.SUBSCRPT_AREA_CODE?.trim(),
     zipCode: raw.HSSPLY_ZIP?.trim(),
     address: raw.HSSPLY_ADRES?.trim(),
-    totalHouseholdCount: profile?.totalHouseholdCount,
-    totalHouseholdSourceUrl: profile?.sourceUrl,
-    totalHouseholdVerifiedAt: profile?.verifiedAt,
     supplyCount: supply,
     priceMin: prices.length > 0 ? Math.min(...prices) : undefined,
     priceMax: prices.length > 0 ? Math.max(...prices) : undefined,
     announceDate: raw.RCRIT_PBLANC_DE,
-    receiptStart: kstDateToUtcIso(start, DEFAULT_RECEIPT_START_KST),
-    receiptEnd: kstDateToUtcIso(end, DEFAULT_RECEIPT_END_KST),
+    receiptStart: kstDateToUtcIso(start, "00:00"),
+    receiptEnd: kstDateToUtcIso(end, "23:59"),
     winnerDate: raw.PRZWNER_PRESNATN_DE,
     contractStartDate: raw.CNTRCT_CNCLS_BGNDE,
     contractEndDate: raw.CNTRCT_CNCLS_ENDDE,
@@ -381,6 +379,7 @@ export function normalizeRemndrItem(
     modelDataVerifiedAt: modelSummaries.length > 0 ? verifiedAt : undefined,
     events,
     lastVerifiedAt: verifiedAt,
+    verification: { noticeApiFetchedAt: verifiedAt },
   };
 }
 
@@ -439,6 +438,7 @@ export function normalizeAptItem(
     modelDataVerifiedAt: modelSummaries.length > 0 ? verifiedAt : undefined,
     events,
     lastVerifiedAt: verifiedAt,
+    verification: { noticeApiFetchedAt: verifiedAt },
   };
 }
 

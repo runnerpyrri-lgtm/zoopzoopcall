@@ -43,6 +43,16 @@ const makeNotice = (id: string, receiptStartMs: number): Notice => ({
   receiptEnd: new Date(receiptStartMs + 8 * 3600_000).toISOString(),
   applyHomeUrl: "https://www.applyhome.co.kr",
   lastVerifiedAt: new Date(receiptStartMs - 86400_000).toISOString(),
+  events: [{
+    kind: "no-priority",
+    label: "접수",
+    start: new Date(receiptStartMs).toISOString(),
+    end: new Date(receiptStartMs + 8 * 3600_000).toISOString(),
+    timeSource: "official",
+    startTimeConfirmed: true,
+    endTimeConfirmed: true,
+    confirmed: true,
+  }],
 });
 
 /** 비동기 전달 체인(마이크로태스크)을 한 번 비운다. */

@@ -48,7 +48,7 @@ export type NoticeDecisionSupport = {
     timing?: string;
   }>;
   costWarning?: string;
-  source?: "notice-pdf";
+  source?: "notice-html" | "notice-pdf" | "official-page" | "public-agency";
   verifiedAt?: string;
 };
 
@@ -61,6 +61,31 @@ export type NoticePriceSignal = {
   comparisonAreaLabel: string;
   sampleMonths: number;
   verifiedAt: string;
+};
+
+export type NoticeSourceType =
+  | "applyhome-api"
+  | "notice-html"
+  | "notice-pdf"
+  | "official-page"
+  | "public-agency"
+  | "molit-trade";
+
+export type NoticeVerificationStatus =
+  | "verified"
+  | "single-official-source"
+  | "conflict"
+  | "not-provided"
+  | "retrying";
+
+/** 공개 필드가 어느 공식 자료에서 언제 확인됐는지 보존한다. */
+export type NoticeFieldProvenance = {
+  sourceType: NoticeSourceType;
+  sourceUrl?: string;
+  fetchedAt: string;
+  documentHash?: string;
+  revision?: string;
+  status: NoticeVerificationStatus;
 };
 
 export type ApplicationEventKind =
@@ -87,6 +112,10 @@ export type ApplicationEvent = {
   start: string;
   /** 기간 일정일 때만 제공하는 UTC ISO. */
   end?: string;
+  /** `official`만 시각이 공식 자료에서 확인된 값이다. */
+  timeSource?: "official" | "date-only" | "reference-rule";
+  startTimeConfirmed?: boolean;
+  endTimeConfirmed?: boolean;
   confirmed?: boolean;
   sourceField?: string;
 };
@@ -101,7 +130,7 @@ export type Notice = {
   type: NoticeType;
   /** 청약홈 원문 주택구분명. */
   officialTypeName?: string;
-  /** 고객용 주택 분류. API가 직접 주지 않는 값은 공고문 확인 필요로 둔다. */
+  /** 고객용 주택 분류. 공식 자료에서 검증되지 않은 값은 노출하지 않는다. */
   housingCategory?: string;
   sourceOperation?: string;
   /** 단지명. */
@@ -160,8 +189,17 @@ export type Notice = {
   events?: ApplicationEvent[];
   /** 데이터 확인 시각 (UTC ISO). */
   lastVerifiedAt: string;
-  /** 공고문 PDF를 구조화해 검증한 값. 없는 필드는 공고문 확인으로 남긴다. */
+  /** 공식 공고문을 구조화해 검증한 값. 없는 필드는 사용자 화면에서 숨긴다. */
   decisionSupport?: NoticeDecisionSupport;
   /** 국토부 실거래 기반 파생값. 충분한 표본과 고신뢰일 때만 화면에 표시한다. */
   priceSignal?: NoticePriceSignal;
+  /** 필드별 공식 출처와 검증 상태. 충돌 필드는 값 대신 conflict 상태만 남긴다. */
+  fieldProvenance?: Record<string, NoticeFieldProvenance>;
+  /** 서로 다른 수집 단계의 실제 확인 시각. */
+  verification?: {
+    noticeApiFetchedAt?: string;
+    modelApiFetchedAt?: string;
+    documentFetchedAt?: string;
+    publishedSnapshotAt?: string;
+  };
 };

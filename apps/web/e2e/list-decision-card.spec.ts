@@ -38,7 +38,7 @@ const notice = {
     priceMax: 224000,
   }],
   events: [
-    { id: "receipt", kind: "no-priority", label: "무순위·재공급 접수", start: new Date(now - HOUR).toISOString(), end: new Date(now + 26 * HOUR).toISOString(), confirmed: true },
+    { id: "receipt", kind: "no-priority", label: "무순위·재공급 접수", start: new Date(now - HOUR).toISOString(), end: new Date(now + 26 * HOUR).toISOString(), confirmed: true, timeSource: "official", startTimeConfirmed: true, endTimeConfirmed: true },
     { id: "winner", kind: "winner", label: "당첨자 발표", start: "2026-07-20T00:00:00+09:00", confirmed: true },
     { id: "contract", kind: "contract", label: "계약", start: "2026-07-24T09:00:00+09:00", end: "2026-07-26T17:30:00+09:00", confirmed: true },
   ],
@@ -102,7 +102,7 @@ test("목록 카드에서 목표 정보 위계와 펼침 내용을 바로 제공
   await expect(card.getByText("분양가", { exact: true })).toBeVisible();
   await expect(card.getByText("공급면적", { exact: true })).toBeVisible();
   await expect(card.getByText("모집세대", { exact: true })).toBeVisible();
-  await expect(card.getByRole("link", { name: "청약홈에서 지금 신청" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "청약홈 열기" })).toBeVisible();
 
   await card.getByRole("button", { name: /나머지 정보 더 보기/ }).click();
   for (const heading of ["신청 자격·제약", "납부 일정", "청약 일정", "공급 구성", "단지 정보"]) {
@@ -110,6 +110,17 @@ test("목록 카드에서 목표 정보 위계와 펼침 내용을 바로 제공
   }
   await expect(card.getByText("데이터 마지막 확인")).toBeVisible();
   await expect(card.getByText("국토부 실거래 외부값")).toBeVisible();
+  await expect(page.getByRole("tab", { name: /마감|취소/ })).toHaveCount(0);
+  await expect(page.getByText("공고문 확인", { exact: true })).toHaveCount(0);
+});
+
+test("설정 안내 문구와 PWA 캐시가 정확히 한 번 표시된다", async ({ page }) => {
+  await page.route("https://homebom.test/notices", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([notice]) });
+  });
+  await page.goto("#/settings");
+  await expect(page.getByText("청약 정보는 정정될 수 있으니, 신청 전 청약홈에서 최종 내용을 한 번 더 확인해 주세요.", { exact: true })).toHaveCount(1);
+  await expect(page.getByText(/PWA zzc-v22/)).toBeVisible();
 });
 
 test("320~768px와 200% 확대에서 목록 카드가 잘리거나 넘치지 않는다", async ({ page }) => {

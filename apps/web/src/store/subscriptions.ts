@@ -1,5 +1,5 @@
 // 알림 구독과 발송 이력을 localStorage에 보관하는 저장소.
-import type { Notice } from "@zoopzoopcall/core";
+import { safeParseNotice, type Notice } from "@zoopzoopcall/core";
 
 export type SubEntry = { open: number[]; close: number[]; eventIds?: string[] };
 export type SubMap = Record<string, SubEntry>;
@@ -43,11 +43,21 @@ export function saveSubs(subs: SubMap): void {
 }
 
 export function loadNoticeSnapshots(): NoticeSnapshotMap {
-  return readJson<NoticeSnapshotMap>(NOTICE_SNAPSHOTS_KEY, {});
+  const stored = readJson<NoticeSnapshotMap>(NOTICE_SNAPSHOTS_KEY, {});
+  const active = Object.fromEntries(Object.entries(stored).filter(([, value]) => {
+    const parsed = safeParseNotice(value);
+    return parsed.success && parsed.data.cancelled !== true && Date.parse(parsed.data.receiptEnd) >= Date.now();
+  }));
+  if (Object.keys(active).length !== Object.keys(stored).length) writeJson(NOTICE_SNAPSHOTS_KEY, active);
+  return active;
 }
 
 export function saveNoticeSnapshots(notices: NoticeSnapshotMap): void {
-  writeJson(NOTICE_SNAPSHOTS_KEY, notices);
+  const active = Object.fromEntries(Object.entries(notices).filter(([, notice]) => {
+    const parsed = safeParseNotice(notice);
+    return parsed.success && parsed.data.cancelled !== true && Date.parse(parsed.data.receiptEnd) >= Date.now();
+  }));
+  writeJson(NOTICE_SNAPSHOTS_KEY, active);
 }
 
 /** 발송된 알림 ID → 발송 시각(ms). 오래된 항목은 로드 시 정리한다. */

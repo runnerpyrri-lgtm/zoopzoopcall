@@ -9,7 +9,12 @@ export type {
   NoticeModelSummary,
   NoticeDecisionSupport,
   NoticePriceSignal,
+  NoticeFieldProvenance,
+  NoticeSourceType,
+  NoticeVerificationStatus,
 } from "./notice/types";
+export { parseNoticeList, safeParseNotice } from "./notice/schema";
+export type { NoticeListParseResult, NoticeParseIssue } from "./notice/schema";
 export { getNoticeStatus, isClosingSoon } from "./notice/status";
 export {
   normalizeRemndrItem,

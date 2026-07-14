@@ -31,18 +31,68 @@ describe("last known good notices", () => {
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
       clear: () => store.clear(),
     });
   });
   it("마지막 성공 응답을 저장하고 복구한다", () => {
     localStorage.clear();
-    const value = { notices: [], verifiedAt: "2026-07-13T00:00:00Z", savedAt: "2026-07-13T00:01:00Z" };
+    const value = {
+      notices: [{
+        id: "active-1",
+        type: "무순위" as const,
+        houseName: "검증 단지",
+        region: "서울",
+        receiptStart: "2099-07-14T00:00:00Z",
+        receiptEnd: "2099-07-15T14:59:00Z",
+        applyHomeUrl: "https://www.applyhome.co.kr/",
+        lastVerifiedAt: "2026-07-13T00:00:00Z",
+      }],
+      verifiedAt: "2026-07-13T00:00:00Z",
+      savedAt: new Date().toISOString(),
+    };
     expect(saveLastKnownNotices(value)).toBe(true);
     expect(loadLastKnownNotices()).toEqual(value);
   });
 
   it("깨진 캐시는 무시한다", () => {
     localStorage.setItem("homebom:notices:lkg:v1", "{");
+    expect(loadLastKnownNotices()).toBeNull();
+  });
+
+  it("72시간이 지난 저장본은 폐기한다", () => {
+    localStorage.setItem("homebom:notices:lkg:v1", JSON.stringify({
+      notices: [{
+        id: "future-1",
+        type: "무순위",
+        houseName: "미래 단지",
+        region: "서울",
+        receiptStart: "2099-07-14T00:00:00Z",
+        receiptEnd: "2099-07-15T14:59:00Z",
+        applyHomeUrl: "https://www.applyhome.co.kr/",
+        lastVerifiedAt: "2026-07-13T00:00:00Z",
+      }],
+      verifiedAt: "2026-07-13T00:00:00Z",
+      savedAt: new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString(),
+    }));
+    expect(loadLastKnownNotices()).toBeNull();
+  });
+
+  it("접수가 끝난 공고만 남은 저장본은 폐기한다", () => {
+    localStorage.setItem("homebom:notices:lkg:v1", JSON.stringify({
+      notices: [{
+        id: "expired-1",
+        type: "무순위",
+        houseName: "종료 단지",
+        region: "서울",
+        receiptStart: "2020-07-14T00:00:00Z",
+        receiptEnd: "2020-07-15T14:59:00Z",
+        applyHomeUrl: "https://www.applyhome.co.kr/",
+        lastVerifiedAt: "2020-07-13T00:00:00Z",
+      }],
+      verifiedAt: "2020-07-13T00:00:00Z",
+      savedAt: new Date().toISOString(),
+    }));
     expect(loadLastKnownNotices()).toBeNull();
   });
 });

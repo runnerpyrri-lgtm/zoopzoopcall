@@ -14,7 +14,7 @@ export function NoticeCard({ notice, now, subscribed, compact = false }: Props) 
   if (compact) {
     return (
       <Link className="agenda-link" to={`/notice/${notice.id}`}>
-        <span>{notice.region} · {notice.supplyCount != null ? `${notice.supplyCount}세대` : "모집 세대 확인"}</span>
+        <span>{notice.region}{notice.supplyCount != null ? ` · ${notice.supplyCount}세대` : ""}</span>
         <strong>상세 보기 ›</strong>
       </Link>
     );

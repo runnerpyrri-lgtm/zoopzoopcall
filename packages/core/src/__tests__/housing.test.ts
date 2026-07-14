@@ -35,8 +35,8 @@ describe("formatHouseholdSummary", () => {
     expect(formatHouseholdSummary(1000, 13)).toBe("총 1,000세대 중 이번 모집 13세대");
   });
 
-  it("총세대수 결측을 꾸며내지 않고 공고문 확인으로 알린다", () => {
-    expect(formatHouseholdSummary(undefined, 13)).toBe("총 세대수 공고문 확인 · 이번 모집 13세대");
-    expect(formatHouseholdSummary()).toBe("전체·모집 세대수 공고문 확인");
+  it("확인되지 않은 총세대수는 숨기고 확인된 모집 세대만 표시한다", () => {
+    expect(formatHouseholdSummary(undefined, 13)).toBe("이번 모집 13세대");
+    expect(formatHouseholdSummary()).toBe("");
   });
 });

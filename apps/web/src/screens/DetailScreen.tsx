@@ -63,7 +63,7 @@ function modelAreas(notice: Notice): number[] {
 }
 
 function AreaValue({ areas }: { areas: number[] }) {
-  if (areas.length === 0) return <>공고문 확인</>;
+  if (areas.length === 0) return null;
   const first = areas[0];
   const last = areas[areas.length - 1];
   if (first === last) {
@@ -86,7 +86,7 @@ function AreaValue({ areas }: { areas: number[] }) {
 
 function PriceValue({ notice }: { notice: Notice }) {
   const { priceMin, priceMax } = notice;
-  if (priceMin == null && priceMax == null) return <>공고문 확인</>;
+  if (priceMin == null && priceMax == null) return null;
   if (priceMin != null && priceMax != null && priceMin !== priceMax) {
     return (
       <>
@@ -162,7 +162,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
   const finished = status === "마감" || status === "취소";
   const schedule = noticeSchedule(notice).filter((item) => item.kind !== "announce");
   const areas = modelAreas(notice);
-  const decision = notice.decisionSupport?.source === "notice-pdf" ? notice.decisionSupport : undefined;
+  const decision = notice.decisionSupport;
   const priceSignal = notice.priceSignal?.confidence === "high"
     && notice.priceSignal.source === "molit-trade"
     && notice.priceSignal.percentBelowMedian > 0
@@ -188,6 +188,25 @@ export function DetailScreen({ notices, subscriptions }: Props) {
   const houseTypes = Array.from(new Set((notice.modelSummaries ?? [])
     .map((model) => model.houseType?.trim())
     .filter((value): value is string => Boolean(value))));
+  const receiptEvent = notice.events?.find((item) => ["receipt", "special", "rank1", "rank2", "no-priority"].includes(item.kind));
+  const targetTimeConfirmed = status === "접수중" ? receiptEvent?.endTimeConfirmed === true : receiptEvent?.startTimeConfirmed === true;
+  const hasEligibility = Boolean(
+    decision?.subscriptionAccount
+    || decision?.selectionMethod
+    || decision?.applicantQualification
+    || decision?.transferRestriction
+    || decision?.residenceRequirement
+    || decision?.rewinningRestriction,
+  );
+  const hasSupplyComposition = notice.supplyCount != null || generalSupply != null || specialSupply != null;
+  const company = [notice.businessOwnerName, decision?.constructionCompanyName].filter(Boolean).join(" · ");
+  const hasComplexInfo = areas.length > 0 || houseTypes.length > 0 || Boolean(notice.moveInMonth || company || notice.contactPhone || notice.noticeUrl);
+  const isApplyDeepLink = (() => {
+    try {
+      const url = new URL(notice.applyHomeUrl);
+      return url.pathname !== "/" || url.search.length > 1;
+    } catch { return false; }
+  })();
 
   const onMasterToggle = async () => {
     if (subscribed) {
@@ -242,14 +261,14 @@ export function DetailScreen({ notices, subscriptions }: Props) {
         <header className="decision-card__deadline">
           <div>
             <span>{status === "접수중" ? "실시간 마감" : status === "예정" ? "접수 시작" : "접수 상태"}</span>
-            {!finished ? <Countdown targetIso={targetIso} /> : <strong className="countdown__value">{status === "취소" ? "취소" : "마감"}</strong>}
+            {!finished && targetTimeConfirmed ? <Countdown targetIso={targetIso} /> : !finished ? <strong className="countdown__date">{formatKstDate(targetIso)}</strong> : <strong className="countdown__value">{status === "취소" ? "취소" : "마감"}</strong>}
           </div>
           <span className={`decision-card__dday${status === "접수중" && closingSoon ? " decision-card__dday--urgent" : ""}`}>{deadlineBadge}</span>
           <p>
             <b>접수기간</b>
-            <span className="detail__nowrap">{formatKstDateTime(notice.receiptStart)}</span>
+            <span className="detail__nowrap">{targetTimeConfirmed ? formatKstDateTime(notice.receiptStart) : formatKstDate(notice.receiptStart)}</span>
             <span aria-hidden="true">~</span>
-            <span className="detail__nowrap">{formatKstDateTime(notice.receiptEnd)}</span>
+            <span className="detail__nowrap">{targetTimeConfirmed ? formatKstDateTime(notice.receiptEnd) : formatKstDate(notice.receiptEnd)}</span>
           </p>
         </header>
 
@@ -262,7 +281,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
             <CorrectionBadge corrected={notice.corrected} status={status} />
           </div>
           <h1 id="decision-card-title" className="detail__title">{notice.houseName}</h1>
-          <p>{notice.address || `${notice.region} · 상세 위치는 공고문 확인`}</p>
+          <p>{notice.address || notice.region}</p>
           <p className="decision-card__type">{housingCategory}{notice.officialTypeName ? ` · ${notice.officialTypeName}` : ""}</p>
         </div>
 
@@ -278,25 +297,25 @@ export function DetailScreen({ notices, subscriptions }: Props) {
         )}
 
         <div className="decision-card__tiles">
-          <div className="decision-tile">
+          {(notice.priceMin != null || notice.priceMax != null) && <div className="decision-tile">
             <span>분양가</span>
             <strong><PriceValue notice={notice} /></strong>
             <small>청약홈 구조화 값</small>
-          </div>
-          <div className="decision-tile">
+          </div>}
+          {areas.length > 0 && <div className="decision-tile">
             <span>공급면적</span>
             <strong><AreaValue areas={areas} /></strong>
             <small>㎡와 평을 함께 표시</small>
-          </div>
-          <div className="decision-tile">
+          </div>}
+          {notice.supplyCount != null && <div className="decision-tile">
             <span>모집세대</span>
-            <strong>{notice.supplyCount != null ? <span className="detail__nowrap">{notice.supplyCount.toLocaleString("ko-KR")}세대</span> : "공고문 확인"}</strong>
+            <strong><span className="detail__nowrap">{notice.supplyCount.toLocaleString("ko-KR")}세대</span></strong>
             <small>이번 공고 기준</small>
-          </div>
+          </div>}
         </div>
 
         <a className="btn btn--primary btn--big decision-card__apply" href={notice.applyHomeUrl} target="_blank" rel="noreferrer">
-          {status === "접수중" ? "청약홈에서 지금 신청" : status === "예정" ? "청약홈 접수처 확인" : "청약홈 공고 확인"}
+          {isApplyDeepLink ? (status === "접수중" ? "청약홈에서 신청" : "청약홈 접수처 열기") : "청약홈 열기"}
         </a>
         <div className="decision-card__secondary-actions">
           {!finished && <button type="button" onClick={scrollToAlerts}>{subscribed ? "알림 설정 보기" : "알림 설정"}</button>}
@@ -315,31 +334,29 @@ export function DetailScreen({ notices, subscriptions }: Props) {
 
         {moreOpen && (
           <div id="decision-card-more" className="decision-card__more-content">
-            <section className="decision-section" aria-labelledby="eligibility-title">
+            {hasEligibility && <section className="decision-section" aria-labelledby="eligibility-title">
               <h2 id="eligibility-title">신청 자격·제약</h2>
               <div className="decision-section__pair">
-                <div><span>청약통장</span><strong>{decision?.subscriptionAccount ?? "공고문 확인"}</strong></div>
-                <div><span>당첨 방식</span><strong>{decision?.selectionMethod ?? "공고문 확인"}</strong></div>
+                {decision?.subscriptionAccount && <div><span>청약통장</span><strong>{decision.subscriptionAccount}</strong></div>}
+                {decision?.selectionMethod && <div><span>당첨 방식</span><strong>{decision.selectionMethod}</strong></div>}
               </div>
               <dl className="decision-info">
-                <InfoRow label="신청 자격" value={decision?.applicantQualification ?? "공고문 확인"} wide />
+                {decision?.applicantQualification && <InfoRow label="신청 자격" value={decision.applicantQualification} wide />}
               </dl>
               <div className="decision-section__triple">
-                <div><span>전매제한</span><strong>{decision?.transferRestriction ?? "공고문 확인"}</strong></div>
-                <div><span>실거주 의무</span><strong>{decision?.residenceRequirement ?? "공고문 확인"}</strong></div>
-                <div><span>재당첨 제한</span><strong>{decision?.rewinningRestriction ?? "공고문 확인"}</strong></div>
+                {decision?.transferRestriction && <div><span>전매제한</span><strong>{decision.transferRestriction}</strong></div>}
+                {decision?.residenceRequirement && <div><span>실거주 의무</span><strong>{decision.residenceRequirement}</strong></div>}
+                {decision?.rewinningRestriction && <div><span>재당첨 제한</span><strong>{decision.rewinningRestriction}</strong></div>}
               </div>
-              <p className="decision-section__source">공고문 PDF 전용 값 · 확인되지 않은 값은 추측하지 않음</p>
-            </section>
+            </section>}
 
-            <section className="decision-section" aria-labelledby="payment-title">
+            {decision?.paymentSchedule?.length ? <section className="decision-section" aria-labelledby="payment-title">
               <h2 id="payment-title">납부 일정</h2>
-              {decision?.paymentSchedule?.length ? (
                 <dl className="payment-list">
                   {decision.paymentSchedule.map((payment) => (
                     <div key={`${payment.label}-${payment.timing ?? ""}`}>
                       <dt>{payment.label}</dt>
-                      <dd>{payment.timing ?? "공고문 확인"}</dd>
+                      {payment.timing && <dd>{payment.timing}</dd>}
                       <strong>
                         {payment.ratio && <span className="detail__nowrap">{payment.ratio}</span>}
                         {payment.ratio && payment.amountManwon != null && <span aria-hidden="true"> · </span>}
@@ -348,8 +365,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
                     </div>
                   ))}
                 </dl>
-              ) : <p className="decision-section__empty">계약금·중도금·잔금은 모집공고 원문을 확인해 주세요.</p>}
-            </section>
+            </section> : null}
 
             <section className="decision-section" aria-labelledby="schedule-title">
               <h2 id="schedule-title">청약 일정</h2>
@@ -367,43 +383,41 @@ export function DetailScreen({ notices, subscriptions }: Props) {
               </ol>
             </section>
 
-            <section className="decision-section" aria-labelledby="supply-title">
+            {hasSupplyComposition && <section className="decision-section" aria-labelledby="supply-title">
               <h2 id="supply-title">공급 구성</h2>
               <div className="decision-section__triple decision-section__triple--supply">
-                <div><strong>{notice.supplyCount ?? "-"}</strong><span>총 모집</span></div>
-                <div><strong>{generalSupply ?? "-"}</strong><span>일반공급</span></div>
-                <div><strong>{specialSupply ?? "-"}</strong><span>특별공급</span></div>
+                {notice.supplyCount != null && <div><strong>{notice.supplyCount}</strong><span>총 모집</span></div>}
+                {generalSupply != null && <div><strong>{generalSupply}</strong><span>일반공급</span></div>}
+                {specialSupply != null && <div><strong>{specialSupply}</strong><span>특별공급</span></div>}
               </div>
-            </section>
+            </section>}
 
-            <section className="decision-section" aria-labelledby="complex-title">
+            {hasComplexInfo && <section className="decision-section" aria-labelledby="complex-title">
               <h2 id="complex-title">단지 정보</h2>
               <dl className="decision-info">
-                <InfoRow label="면적" value={<AreaValue areas={areas} />} />
-                <InfoRow label="주택형" value={houseTypes.length > 0 ? houseTypes.join(" · ") : "공고문 확인"} />
-                <InfoRow label="입주 예정" value={notice.moveInMonth ? <span className="detail__nowrap">{notice.moveInMonth}</span> : "공고문 확인"} />
-                <InfoRow label="시행·시공" value={[notice.businessOwnerName, decision?.constructionCompanyName].filter(Boolean).join(" · ") || "공고문 확인"} wide />
-                <InfoRow label="문의" value={notice.contactPhone ? <span className="detail__nowrap">{notice.contactPhone}</span> : "공고문 확인"} />
+                {areas.length > 0 && <InfoRow label="면적" value={<AreaValue areas={areas} />} />}
+                {houseTypes.length > 0 && <InfoRow label="주택형" value={houseTypes.join(" · ")} />}
+                {notice.moveInMonth && <InfoRow label="입주 예정" value={<span className="detail__nowrap">{notice.moveInMonth}</span>} />}
+                {company && <InfoRow label="시행·시공" value={company} wide />}
+                {notice.contactPhone && <InfoRow label="문의" value={<span className="detail__nowrap">{notice.contactPhone}</span>} />}
                 <InfoRow label="공식 접수처" value={<a href={notice.applyHomeUrl} target="_blank" rel="noreferrer">청약홈</a>} wide />
                 {notice.noticeUrl && <InfoRow label="모집공고 원문" value={<a href={notice.noticeUrl} target="_blank" rel="noreferrer">청약홈 공고문 열기</a>} wide />}
                 {notice.totalHouseholdSourceUrl && <InfoRow label="단지 규모 출처" value={<a href={notice.totalHouseholdSourceUrl} target="_blank" rel="noreferrer">공개 확인 자료 열기</a>} wide />}
               </dl>
-            </section>
+            </section>}
 
             <p className="decision-card__verified">데이터 마지막 확인 <span className="detail__nowrap">{formatKstDateTime(notice.lastVerifiedAt)}</span> · 출처 청약홈</p>
-            <p className="decision-card__warning">
-              {decision?.costWarning ?? "확장비·유상옵션·취득세·중도금 이자 등은 표시된 분양가에 포함되지 않을 수 있어요. 신청 전 청약홈 원문을 꼭 확인하세요."}
-            </p>
+            {decision?.costWarning && <p className="decision-card__warning">{decision.costWarning}</p>}
             <div className="decision-card__sources" aria-label="데이터 출처 구분">
               <span>청약홈 API 구조화 값</span>
-              {decision && <span>공고문 PDF 전용 값</span>}
+              {decision && <span>공식 공고문 전용 값</span>}
               {priceSignal && <><span>국토부 실거래 외부값</span><span>청약봄 파생값</span></>}
             </div>
           </div>
         )}
       </article>
 
-      {!finished && (
+      {!finished && targetTimeConfirmed && (
         <section className="alerts-card" id="alerts">
           <div className="alerts-card__head">
             <h2>알림 받기</h2>
@@ -443,7 +457,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
               <div className="alerts-card__group">
                 <h3>세부 일정 <small>선택한 일정은 하루 전과 한 시간 전에 알려드려요.</small></h3>
                 <div className="event-alerts">
-                  {schedule.filter((item) => item.id && ["special", "rank1", "rank2", "no-priority", "winner", "contract"].includes(item.kind)).map((item) => (
+                  {schedule.filter((item) => item.id && item.startTimeConfirmed === true && ["special", "rank1", "rank2", "no-priority", "winner", "contract"].includes(item.kind)).map((item) => (
                     <label key={item.id}>
                       <input type="checkbox" checked={entry.eventIds?.includes(item.id!) ?? false} onChange={() => subscriptions.toggleEvent(notice.id, item.id!)} />
                       <span><strong>{item.label}</strong><small>{formatKstDate(item.start)}</small></span>

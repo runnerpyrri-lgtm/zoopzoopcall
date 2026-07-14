@@ -5,14 +5,19 @@
 - 공개 URL: https://robom-labs.github.io/homebom/
 - 소스는 `main`, 배포 산출물은 `gh-pages` 브랜치(root). Pages 설정: Deploy from a branch → gh-pages.
 
-재배포 절차:
+`main` push 후 `.github/workflows/deploy-pages.yml`이 전체 release gate를 통과하면 자동 배포한다.
+
+로컬 사전 검증:
 
 ```bash
-pnpm build                       # packages/core 검사 + 아이콘 생성 + apps/web 빌드
-cd apps/web/dist
-git init && git add -A
-git commit -m "deploy"
-git push -f https://github.com/robom-labs/homebom.git HEAD:gh-pages
+pnpm install --frozen-lockfile
+git diff --check
+pnpm typecheck
+pnpm test
+VITE_NOTICES_URL=https://neqjmxaneibobpedgsnl.functions.supabase.co/notices pnpm build
+pnpm test:e2e
+node --check apps/web/public/sw.js
+VITE_NOTICES_URL=https://neqjmxaneibobpedgsnl.functions.supabase.co/notices node scripts/validate-notices-response.mjs
 ```
 
 - SPA 라우팅은 HashRouter라 404 우회가 필요 없다.
@@ -29,6 +34,7 @@ supabase link --project-ref <프로젝트ref>
 supabase secrets set DATA_GO_KR_SERVICE_KEY=<인증키>
 supabase db push --linked
 supabase functions deploy notices --no-verify-jwt
+supabase functions deploy sync-notice-documents --no-verify-jwt
 ```
 
 3. 함수 URL(`https://<ref>.functions.supabase.co/notices`)을 `apps/web/.env`에 설정:
@@ -43,11 +49,10 @@ VITE_NOTICES_URL=https://<ref>.functions.supabase.co/notices
 
 - 서비스키는 절대 `apps/web`(.env의 VITE_ 아닌 변수 포함)이나 커밋에 넣지 않는다. Supabase secrets에만 둔다.
 - 무료 서비스키는 일일 트래픽 제한(개발계정 4만)이 있어 함수 응답에는 10분 캐시를, 일반공급 주택형에는 24시간 서버 캐시와 재시도 시간을 둔다.
-- `notice_model_cache`는 RLS를 켜고 공개 정책을 만들지 않은 service-role 전용 테이블이다.
+- `notice_model_cache`, `notice_public_snapshots`, `notice_document_cache`, `notice_collection_conflicts`, `notice_sync_auth`는 RLS를 켜고 공개 정책을 만들지 않은 service-role 전용 테이블이다.
+- 공식 문서 동기화 토큰은 마이그레이션이 DB에서 무작위로 만들며 Vault에는 원문, `notice_sync_auth`에는 SHA-256만 저장한다. 저장소나 로그에는 값이 남지 않는다.
 - odcloud API가 `returnType=JSON`을 지원하므로 XML 파싱은 불필요(실측 확인).
 
-## 검증 기록 (2026-07-08)
+## 검증 기록
 
-- `pnpm test` 37건 통과, `pnpm typecheck` 통과, `pnpm build` 성공.
-- `vite preview`에서 index/JS/sw.js/manifest/아이콘 200 확인.
-- 배포 URL 접속 확인은 배포 직후 curl로 수행(아래 DEVELOPMENT_LOG 참고).
+- 실행 시점의 테스트 수와 운영 smoke 결과는 각 GitHub Actions 실행 기록을 정본으로 삼는다.
