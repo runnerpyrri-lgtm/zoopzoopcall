@@ -120,7 +120,7 @@ test("설정 안내 문구와 PWA 캐시가 정확히 한 번 표시된다", asy
   });
   await page.goto("#/settings");
   await expect(page.getByText("청약 정보는 정정될 수 있으니, 신청 전 청약홈에서 최종 내용을 한 번 더 확인해 주세요.", { exact: true })).toHaveCount(1);
-  await expect(page.getByText(/PWA zzc-v22/)).toBeVisible();
+  await expect(page.getByText(/PWA zzc-v23/)).toBeVisible();
 });
 
 test("320~768px와 200% 확대에서 목록 카드가 잘리거나 넘치지 않는다", async ({ page }) => {
