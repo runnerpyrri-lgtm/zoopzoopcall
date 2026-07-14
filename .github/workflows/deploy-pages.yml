@@ -58,6 +58,17 @@ jobs:
       - name: Browser regression test
         run: pnpm test:e2e
 
+      # Playwright는 고정 fixture URL로 별도 빌드하므로, 배포 직전에 실운영 URL로 다시 빌드한다.
+      - name: Rebuild production bundle
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
+        run: pnpm build
+
+      - name: 운영 API 번들 검증
+        run: |
+          grep -R -q 'neqjmxaneibobpedgsnl.functions.supabase.co/notices' apps/web/dist/assets
+          if grep -R -q 'homebom.test/notices' apps/web/dist/assets; then exit 1; fi
+
       - name: base path 유지 검증 (깨졌으면 배포 중단)
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
 
