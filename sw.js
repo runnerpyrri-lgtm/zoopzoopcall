@@ -1,6 +1,7 @@
 // 청약봄 서비스워커. 앱 셸 캐시(오프라인)와 알림 클릭 처리를 담당한다.
 // 캐시 이름을 올리면 activate 단계에서 이전 버전 캐시(zzc-v1 등)가 자동 삭제된다.
-const CACHE = "zzc-v23";
+const CACHE = "zzc-v24";
+const CACHE_PREFIX = "zzc-";
 
 // 설치 직후 오프라인에서도 아이콘·매니페스트가 보이도록 앱 셸을 미리 캐시한다.
 // 경로는 sw.js 위치 기준 상대경로만 사용해 base path(/homebom/)를 하드코딩하지 않는다.
@@ -32,7 +33,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+      await Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE).map((k) => caches.delete(k)));
       await self.clients.claim();
     })(),
   );
