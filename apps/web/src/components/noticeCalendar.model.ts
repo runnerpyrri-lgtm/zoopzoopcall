@@ -22,6 +22,8 @@ export type MonthCell = {
   ends: number;
   /** 당첨자 발표 수. */
   winners: number;
+  /** 모집공고 게시 수. */
+  announcements: number;
   /** 계약 시작 수. */
   contracts: number;
   /** 좁은 모바일 셀에 표시할 일정 라벨. 최대 두 개와 나머지 건수만 렌더한다. */
@@ -47,6 +49,7 @@ const blankCell = (): MonthCell => ({
   starts: 0,
   ends: 0,
   winners: 0,
+  announcements: 0,
   contracts: 0,
   markers: [],
 });
@@ -66,6 +69,7 @@ export function buildMonthGrid(now: number, notices: Notice[], viewYear?: number
   const startCount = new Map<string, number>();
   const endCount = new Map<string, number>();
   const winnerCount = new Map<string, number>();
+  const announcementCount = new Map<string, number>();
   const contractCount = new Map<string, number>();
   const markers = new Map<string, Array<{ kind: ApplicationEventKind; label: string; priority: number }>>();
   const monthPrefix = `${year}-${pad(month)}`;
@@ -80,6 +84,8 @@ export function buildMonthGrid(now: number, notices: Notice[], viewYear?: number
       if (["receipt", "special", "rank1", "rank2", "no-priority"].includes(item.kind)) {
         startCount.set(s, (startCount.get(s) ?? 0) + 1);
         endCount.set(e, (endCount.get(e) ?? 0) + 1);
+      } else if (item.kind === "announce") {
+        announcementCount.set(s, (announcementCount.get(s) ?? 0) + 1);
       } else if (item.kind === "winner") {
         winnerCount.set(s, (winnerCount.get(s) ?? 0) + 1);
       } else if (item.kind === "contract") {
@@ -106,6 +112,7 @@ export function buildMonthGrid(now: number, notices: Notice[], viewYear?: number
       starts: startCount.get(key) ?? 0,
       ends: endCount.get(key) ?? 0,
       winners: winnerCount.get(key) ?? 0,
+      announcements: announcementCount.get(key) ?? 0,
       contracts: contractCount.get(key) ?? 0,
       markers: markers.get(key) ?? [],
     });

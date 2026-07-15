@@ -27,6 +27,7 @@ const notice = {
   businessOwnerName: "반포주공1단지 재건축조합",
   contactPhone: "1533-0000",
   moveInMonth: "2027년 12월",
+  announceDate: new Date(now).toISOString().slice(0, 10),
   modelDataStatus: "collected",
   modelDataVerifiedAt: new Date(now).toISOString(),
   modelSummaries: [{
@@ -38,6 +39,7 @@ const notice = {
     priceMax: 224000,
   }],
   events: [
+    { id: "announce", kind: "announce", label: "모집공고", start: new Date(`${new Date(now).toISOString().slice(0, 10)}T00:00:00+09:00`).toISOString(), end: new Date(`${new Date(now).toISOString().slice(0, 10)}T23:59:00+09:00`).toISOString(), confirmed: false, timeSource: "date-only", startTimeConfirmed: false, endTimeConfirmed: false },
     { id: "receipt", kind: "no-priority", label: "무순위·재공급 접수", start: new Date(now - HOUR).toISOString(), end: new Date(now + 26 * HOUR).toISOString(), confirmed: true, timeSource: "official", startTimeConfirmed: true, endTimeConfirmed: true },
     { id: "winner", kind: "winner", label: "당첨자 발표", start: "2026-07-20T00:00:00+09:00", confirmed: true },
     { id: "contract", kind: "contract", label: "계약", start: "2026-07-24T09:00:00+09:00", end: "2026-07-26T17:30:00+09:00", confirmed: true },
@@ -120,7 +122,40 @@ test("설정 안내 문구와 PWA 캐시가 정확히 한 번 표시된다", asy
   });
   await page.goto("#/settings");
   await expect(page.getByText("청약 정보는 정정될 수 있으니, 신청 전 청약홈에서 최종 내용을 한 번 더 확인해 주세요.", { exact: true })).toHaveCount(1);
-  await expect(page.getByText(/PWA zzc-v23/)).toBeVisible();
+  await expect(page.getByText(/PWA zzc-v24/)).toBeVisible();
+});
+
+test("달력 공고 마커의 접근성 이름과 상세 알림 딥링크가 실제 동작한다", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await openList(page);
+  await expect(page.getByRole("button", { name: /공고 1건/ })).toBeVisible();
+
+  await page.goto(`#/notice/${notice.id}#alerts`);
+  const alerts = page.locator("#alerts");
+  await expect(alerts).toBeFocused();
+  await expect(alerts).toBeInViewport();
+  const navTop = await page.locator(".nav").evaluate((node) => node.getBoundingClientRect().top);
+  const alertsTop = await alerts.evaluate((node) => node.getBoundingClientRect().top);
+  expect(alertsTop).toBeLessThan(navTop);
+});
+
+test("직접 상세 URL은 데이터 로딩 중 공고 없음으로 오인하지 않는다", async ({ page }) => {
+  await page.route("https://homebom.test/notices", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([notice]) });
+  });
+  await page.goto(`#/notice/${notice.id}`);
+  await expect(page.getByText("공고를 불러오는 중입니다…", { exact: true })).toBeVisible();
+  await expect(page.getByText("공고를 찾을 수 없어요", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /래미안 원펜타스/ })).toBeVisible();
+});
+
+test("320px 첫 공고가 고정 하단 메뉴 위에서 시작된다", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await openList(page);
+  const cardTop = await page.locator(".decision-card--list").evaluate((node) => node.getBoundingClientRect().top);
+  const navTop = await page.locator(".nav").evaluate((node) => node.getBoundingClientRect().top);
+  expect(cardTop).toBeLessThan(navTop);
 });
 
 test("320~768px와 200% 확대에서 목록 카드가 잘리거나 넘치지 않는다", async ({ page }) => {

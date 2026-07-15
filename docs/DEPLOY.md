@@ -16,7 +16,7 @@ pnpm typecheck
 pnpm test
 VITE_NOTICES_URL=https://neqjmxaneibobpedgsnl.functions.supabase.co/notices pnpm build
 pnpm test:e2e
-node --check apps/web/public/sw.js
+pnpm validate:sw
 VITE_NOTICES_URL=https://neqjmxaneibobpedgsnl.functions.supabase.co/notices node scripts/validate-notices-response.mjs
 ```
 
@@ -48,8 +48,9 @@ VITE_NOTICES_URL=https://<ref>.functions.supabase.co/notices
 주의:
 
 - 서비스키는 절대 `apps/web`(.env의 VITE_ 아닌 변수 포함)이나 커밋에 넣지 않는다. Supabase secrets에만 둔다.
-- 무료 서비스키는 일일 트래픽 제한(개발계정 4만)이 있어 함수 응답에는 10분 캐시를, 일반공급 주택형에는 24시간 서버 캐시와 재시도 시간을 둔다.
-- `notice_model_cache`, `notice_public_snapshots`, `notice_document_cache`, `notice_collection_conflicts`, `notice_sync_auth`는 RLS를 켜고 공개 정책을 만들지 않은 service-role 전용 테이블이다.
+- 고객 GET은 검증된 `notice_public_snapshots`만 즉시 읽는다. 청약홈 업스트림 갱신은 매시 5분 인증 작업, 공식 공고문 동기화는 15분 주기로 분리한다.
+- 업스트림 429가 확인되면 `notice_upstream_state`에 다음 한국시간 할당량 갱신 시각을 기록해 같은 날의 반복 호출을 막는다.
+- `notice_model_cache`, `notice_public_snapshots`, `notice_public_snapshot_history`, `notice_document_cache`, `notice_collection_conflicts`, `notice_sync_auth`, `notice_upstream_state`, `notice_sync_runs`는 RLS와 권한 회수를 함께 적용한 service-role 전용 테이블이다.
 - 공식 문서 동기화 토큰은 마이그레이션이 DB에서 무작위로 만들며 Vault에는 원문, `notice_sync_auth`에는 SHA-256만 저장한다. 저장소나 로그에는 값이 남지 않는다.
 - odcloud API가 `returnType=JSON`을 지원하므로 XML 파싱은 불필요(실측 확인).
 

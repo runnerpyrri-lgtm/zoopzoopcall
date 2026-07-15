@@ -1,6 +1,6 @@
 // 공고 상세 화면. 공식 데이터와 공고문 값을 구분해 신청 판단 순서로 보여준다.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type { Notice } from "@zoopzoopcall/core";
 import {
   DEFAULT_CLOSE_OFFSETS,
@@ -34,6 +34,8 @@ import { noticeSchedule } from "../components/noticeSchedule";
 type Props = {
   notices: Notice[];
   subscriptions: ReturnType<typeof useSubscriptions>;
+  loading: boolean;
+  error: string | null;
 };
 
 type InfoRowProps = {
@@ -104,8 +106,9 @@ function sumKnown(values: Array<number | undefined>): number | undefined {
   return known.length > 0 ? known.reduce((sum, value) => sum + value, 0) : undefined;
 }
 
-export function DetailScreen({ notices, subscriptions }: Props) {
+export function DetailScreen({ notices, subscriptions, loading, error }: Props) {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const now = useNow(15_000);
   const [permission, setPermission] = useState<PermissionState>(() => notificationSupport());
@@ -115,6 +118,20 @@ export function DetailScreen({ notices, subscriptions }: Props) {
   const mapSheetRef = useRef<HTMLElement>(null);
   const mapTriggerRef = useRef<HTMLButtonElement>(null);
   const notice = notices.find((item) => item.id === id);
+
+  useEffect(() => {
+    if (!notice || location.hash !== "#alerts") return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById("alerts");
+      const root = document.documentElement;
+      const previousScrollBehavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ behavior: "auto", block: "center" });
+      root.style.scrollBehavior = previousScrollBehavior;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, notice]);
 
   useEffect(() => {
     if (!mapOpen) return;
@@ -147,7 +164,8 @@ export function DetailScreen({ notices, subscriptions }: Props) {
     return (
       <div className="screen">
         <div className="empty">
-          <p className="empty__title">공고를 찾을 수 없어요</p>
+          <p className="empty__title">{loading ? "공고를 불러오는 중입니다…" : error ? "공고 연결이 지연되고 있어요" : "공고를 찾을 수 없어요"}</p>
+          {error && !loading && <p className="empty__body">{error}</p>}
           <Link to="/" className="btn btn--ghost">목록으로 돌아가기</Link>
         </div>
       </div>
@@ -243,7 +261,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
   };
 
   const scrollToAlerts = () => {
-    document.getElementById("alerts")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("alerts")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   return (
@@ -418,7 +436,7 @@ export function DetailScreen({ notices, subscriptions }: Props) {
       </article>
 
       {!finished && targetTimeConfirmed && (
-        <section className="alerts-card" id="alerts">
+        <section className="alerts-card" id="alerts" tabIndex={-1}>
           <div className="alerts-card__head">
             <h2>알림 받기</h2>
             <button

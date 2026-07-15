@@ -163,6 +163,7 @@ a { color: inherit; }
 .detail__actions { display: grid; gap: 8px; margin-bottom: 8px; }
 .detail__actions--secondary { margin-top: 14px; }
 .alerts-card, .detail__table, .detail__models, .detail__schedule, .info-card, .settings-section { margin-top: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); }
+.alerts-card { scroll-margin-top: 16px; scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .alerts-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .alerts-card__head h2, .info-card h2, .settings-section h2, .detail__models h2 { font-size: 19px; }
 .alerts-card__hint { margin-top: 5px; color: var(--muted); font-size: 14px; }
@@ -487,7 +488,7 @@ a { color: inherit; }
   .source { max-width: 104px; min-height: 40px; padding-inline: 9px; font-size: 11px; text-align: center; white-space: normal; line-height: 1.2; }
   .notice-calendar__head { align-items: flex-end; }
   .notice-calendar__month-tabs button { padding-inline: 8px; }
-  .notice-calendar__blank, .notice-calendar__day { min-height: 66px; }
+  .notice-calendar__blank, .notice-calendar__day { min-height: 48px; }
   .notice-calendar__day strong { font-size: 13px; }
   .filters__chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filters__chips .chip, .filters__chips .chip:nth-last-child(-n + 2) { grid-column: auto; white-space: normal; line-height: 1.15; }

@@ -43,7 +43,7 @@ jobs:
       - name: base path 유지 확인
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
       - name: 서비스워커 문법 확인
-        run: node --check apps/web/public/sw.js
+        run: pnpm validate:sw
       - name: 공개 API 계약 확인
         run: node scripts/validate-notices-response.mjs
         env:

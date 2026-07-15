@@ -54,7 +54,7 @@ export default function App() {
             />
             <Route
               path="/notice/:id"
-              element={<DetailScreen notices={notices} subscriptions={subscriptions} />}
+              element={<DetailScreen notices={notices} subscriptions={subscriptions} loading={loading} error={error} />}
             />
             <Route
               path="/alerts"

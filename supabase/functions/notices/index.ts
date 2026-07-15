@@ -9,11 +9,13 @@ const APT_DETAIL_OPERATION = "getAPTLttotPblancDetail";
 const APT_MODEL_OPERATION = "getAPTLttotPblancMdl";
 const APPLY_HOME_URL = "https://www.applyhome.co.kr";
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const SNAPSHOT_STALE_AFTER_MS = 90 * 60 * 1000;
 const PER_PAGE = 500;
 /** 청약홈(odcloud) 업스트림 호출 타임아웃(ms). 초과 시 AbortController 로 요청을 중단한다. */
 const FETCH_TIMEOUT_MS = 8_000;
 const MODEL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MODEL_RETRY_MS = 60 * 60 * 1000;
+const MAX_MODEL_REFRESH_PER_RUN = 3;
 const LOCATION_RETRY_MS = 24 * 60 * 60 * 1000;
 // IP당 분당 허용 요청 수. 인스턴스 메모리 기반의 best-effort 제한이다 —
 // Edge Function 인스턴스가 여러 개 뜨거나 재시작되면 카운터가 공유·유지되지 않는다.
@@ -72,6 +74,7 @@ type PublicSnapshotRow = {
   stats: Record<string, unknown>;
   verified_at: string;
 };
+type UpstreamStateRow = { source_key: string; retry_after?: string | null; last_error?: string | null };
 type CollectionStats = {
   fetched: number;
   valid: number;
@@ -79,6 +82,8 @@ type CollectionStats = {
   conflict: number;
   expired: number;
   cancelled: number;
+  modelBlocked: number;
+  preserved: number;
   published: number;
 };
 type CollectionConflict = {
@@ -278,6 +283,28 @@ function sameOfficialValue(a: unknown, b: unknown): boolean {
   if (a === undefined || b === undefined) return false;
   return String(a).normalize("NFKC").replace(/\s+/g, " ").trim()
     === String(b).normalize("NFKC").replace(/\s+/g, " ").trim();
+}
+
+function sameOfficialFieldValue(fieldName: string, a: unknown, b: unknown): boolean {
+  if (sameOfficialValue(a, b)) return true;
+  const left = String(a ?? "").normalize("NFKC");
+  const right = String(b ?? "").normalize("NFKC");
+  if (fieldName === "contactPhone") return left.replace(/\D/g, "") === right.replace(/\D/g, "");
+  if (["businessOwnerName", "address"].includes(fieldName)) {
+    const compact = (value: string) => value.replace(/[^0-9a-z가-힣]/giu, "").toLowerCase();
+    return compact(left) === compact(right);
+  }
+  return false;
+}
+
+function isQuotaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /(?:HTTP|API)\s*429|트래픽 허용 횟수|quota|rate.?limit/iu.test(message);
+}
+
+function nextKstQuotaReset(now = Date.now()): string {
+  const kst = new Date(now + 9 * 60 * 60 * 1000);
+  return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() + 1, 0, 10) - 9 * 60 * 60 * 1000).toISOString();
 }
 
 function serviceKeyParam(): string | null {
@@ -574,7 +601,7 @@ function normalize(
       status: "single-official-source",
     }]));
 
-  if (!document || document.status === "conflict") return base;
+  if (!document || !["verified", "single-official-source"].includes(document.status)) return base;
   const parsed = document.parsed_fields;
   const decisionSupport = typeof parsed.decisionSupport === "object" && parsed.decisionSupport !== null
     ? { ...parsed.decisionSupport as Record<string, unknown>, source: document.source_type, verifiedAt: document.fetched_at }
@@ -582,7 +609,7 @@ function normalize(
   const fieldProvenance = { ...base.fieldProvenance, ...document.provenance };
   const mergeOfficialField = (fieldName: string, apiValue: unknown, documentValue: unknown): unknown => {
     if (documentValue === undefined) return apiValue;
-    if (apiValue === undefined || sameOfficialValue(apiValue, documentValue)) return documentValue;
+    if (apiValue === undefined || sameOfficialFieldValue(fieldName, apiValue, documentValue)) return documentValue;
     if (document.revision?.includes("정정")) return documentValue;
     collectionConflicts.push({
       noticeKey: base.id,
@@ -644,25 +671,33 @@ function supabaseCredentials(): { url: string; serviceRole: string } | null {
   return url && serviceRole ? { url, serviceRole } : null;
 }
 
-async function readModelCache(): Promise<Map<string, ModelCacheRow>> {
+async function readRestRows<T>(path: string): Promise<T[]> {
   const credentials = supabaseCredentials();
-  if (!credentials) return new Map();
-  const res = await fetch(`${credentials.url}/rest/v1/notice_model_cache?select=notice_key,models,fetched_at,retry_after&limit=1000`, {
-    headers: { apikey: credentials.serviceRole, authorization: `Bearer ${credentials.serviceRole}` },
-  });
-  if (!res.ok) throw new Error(`주택형 캐시 조회 실패 ${res.status}`);
-  const rows = await res.json() as ModelCacheRow[];
+  if (!credentials) return [];
+  const rows: T[] = [];
+  const pageSize = 1000;
+  for (let from = 0;; from += pageSize) {
+    const res = await fetch(`${credentials.url}/rest/v1/${path}`, {
+      headers: {
+        apikey: credentials.serviceRole,
+        authorization: `Bearer ${credentials.serviceRole}`,
+        range: `${from}-${from + pageSize - 1}`,
+      },
+    });
+    if (!res.ok) throw new Error(`Supabase 캐시 조회 실패 ${res.status}`);
+    const page = await res.json() as T[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function readModelCache(): Promise<Map<string, ModelCacheRow>> {
+  const rows = await readRestRows<ModelCacheRow>("notice_model_cache?select=notice_key,models,fetched_at,retry_after&order=notice_key.asc");
   return new Map(rows.map((row) => [row.notice_key, row]));
 }
 
 async function readDocumentCache(): Promise<Map<string, DocumentCacheRow>> {
-  const credentials = supabaseCredentials();
-  if (!credentials) return new Map();
-  const res = await fetch(`${credentials.url}/rest/v1/notice_document_cache?select=notice_key,source_type,parsed_fields,provenance,conflicts,status,fetched_at,document_hash,revision&limit=1000`, {
-    headers: { apikey: credentials.serviceRole, authorization: `Bearer ${credentials.serviceRole}` },
-  });
-  if (!res.ok) throw new Error(`공고문 캐시 조회 실패 ${res.status}`);
-  const rows = await res.json() as DocumentCacheRow[];
+  const rows = await readRestRows<DocumentCacheRow>("notice_document_cache?select=notice_key,source_type,parsed_fields,provenance,conflicts,status,fetched_at,document_hash,revision&order=notice_key.asc");
   return new Map(rows.map((row) => [row.notice_key, row]));
 }
 
@@ -677,9 +712,61 @@ async function readPublicSnapshot(): Promise<PublicSnapshotRow | null> {
   return rows[0] ?? null;
 }
 
+async function readUpstreamState(): Promise<UpstreamStateRow | null> {
+  const credentials = supabaseCredentials();
+  if (!credentials) return null;
+  const res = await fetch(`${credentials.url}/rest/v1/notice_upstream_state?source_key=eq.applyhome&select=source_key,retry_after,last_error&limit=1`, {
+    headers: { apikey: credentials.serviceRole, authorization: `Bearer ${credentials.serviceRole}` },
+  });
+  if (!res.ok) throw new Error(`업스트림 상태 조회 실패 ${res.status}`);
+  const rows = await res.json() as UpstreamStateRow[];
+  return rows[0] ?? null;
+}
+
+async function writeUpstreamState(retryAfter: string | null, lastError: string | null): Promise<void> {
+  const credentials = supabaseCredentials();
+  if (!credentials) return;
+  const res = await fetch(`${credentials.url}/rest/v1/notice_upstream_state?on_conflict=source_key`, {
+    method: "POST",
+    headers: {
+      apikey: credentials.serviceRole,
+      authorization: `Bearer ${credentials.serviceRole}`,
+      "content-type": "application/json",
+      prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({ source_key: "applyhome", retry_after: retryAfter, last_error: lastError, updated_at: new Date().toISOString() }),
+  });
+  if (!res.ok) throw new Error(`업스트림 상태 저장 실패 ${res.status}`);
+}
+
+async function authorizedRefresh(req: Request): Promise<boolean> {
+  const provided = req.headers.get("x-sync-token");
+  const credentials = supabaseCredentials();
+  if (!provided || !credentials) return false;
+  const res = await fetch(`${credentials.url}/rest/v1/notice_sync_auth?singleton=eq.true&select=token_hash&limit=1`, {
+    headers: { apikey: credentials.serviceRole, authorization: `Bearer ${credentials.serviceRole}` },
+  });
+  if (!res.ok) return false;
+  const rows = await res.json() as Array<{ token_hash?: string }>;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(provided));
+  const actual = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Boolean(rows[0]?.token_hash) && actual === rows[0]?.token_hash;
+}
+
 async function writePublicSnapshot(notices: unknown[], stats: CollectionStats, verifiedAt: string): Promise<void> {
   const credentials = supabaseCredentials();
   if (!credentials || notices.length === 0) return;
+  const historyRes = await fetch(`${credentials.url}/rest/v1/notice_public_snapshot_history`, {
+    method: "POST",
+    headers: {
+      apikey: credentials.serviceRole,
+      authorization: `Bearer ${credentials.serviceRole}`,
+      "content-type": "application/json",
+      prefer: "return=minimal",
+    },
+    body: JSON.stringify({ feed_key: "active", notices, stats, verified_at: verifiedAt }),
+  });
+  if (!historyRes.ok) throw new Error(`공개 스냅샷 이력 저장 실패 ${historyRes.status}`);
   const res = await fetch(`${credentials.url}/rest/v1/notice_public_snapshots?on_conflict=feed_key`, {
     method: "POST",
     headers: {
@@ -700,9 +787,9 @@ async function writePublicSnapshot(notices: unknown[], stats: CollectionStats, v
   if (!res.ok) throw new Error(`공개 스냅샷 저장 실패 ${res.status}`);
 }
 
-async function writeCollectionConflicts(conflicts: CollectionConflict[]): Promise<void> {
+async function reconcileCollectionConflicts(activeNoticeIds: string[], conflicts: CollectionConflict[]): Promise<void> {
   const credentials = supabaseCredentials();
-  if (!credentials || conflicts.length === 0) return;
+  if (!credentials) return;
   const rows = conflicts.map((conflict) => ({
     notice_key: conflict.noticeKey,
     field_name: conflict.fieldName,
@@ -711,17 +798,43 @@ async function writeCollectionConflicts(conflicts: CollectionConflict[]): Promis
     resolved_at: null,
     resolution: null,
   }));
-  const res = await fetch(`${credentials.url}/rest/v1/notice_collection_conflicts?on_conflict=notice_key,field_name`, {
-    method: "POST",
-    headers: {
-      apikey: credentials.serviceRole,
-      authorization: `Bearer ${credentials.serviceRole}`,
-      "content-type": "application/json",
-      prefer: "resolution=merge-duplicates,return=minimal",
-    },
-    body: JSON.stringify(rows),
-  });
-  if (!res.ok) throw new Error(`공식 출처 충돌 저장 실패 ${res.status}`);
+  if (rows.length > 0) {
+    const res = await fetch(`${credentials.url}/rest/v1/notice_collection_conflicts?on_conflict=notice_key,field_name`, {
+      method: "POST",
+      headers: {
+        apikey: credentials.serviceRole,
+        authorization: `Bearer ${credentials.serviceRole}`,
+        "content-type": "application/json",
+        prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(rows),
+    });
+    if (!res.ok) throw new Error(`공식 출처 충돌 저장 실패 ${res.status}`);
+  }
+
+  if (activeNoticeIds.length === 0) return;
+  const openRows = await readRestRows<{ id: number; notice_key: string; field_name: string }>(
+    "notice_collection_conflicts?resolved_at=is.null&select=id,notice_key,field_name&order=id.asc",
+  );
+  const current = new Set(conflicts.map((item) => `${item.noticeKey}\u0000${item.fieldName}`));
+  const resolvedAt = new Date().toISOString();
+  const active = new Set(activeNoticeIds);
+  await Promise.all(openRows.filter((row) => !current.has(`${row.notice_key}\u0000${row.field_name}`)).map(async (row) => {
+    const res = await fetch(`${credentials.url}/rest/v1/notice_collection_conflicts?id=eq.${row.id}`, {
+      method: "PATCH",
+      headers: {
+        apikey: credentials.serviceRole,
+        authorization: `Bearer ${credentials.serviceRole}`,
+        "content-type": "application/json",
+        prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        resolved_at: resolvedAt,
+        resolution: { status: active.has(row.notice_key) ? "official-sources-agree" : "notice-no-longer-published" },
+      }),
+    });
+    if (!res.ok) throw new Error(`공식 출처 충돌 해소 기록 실패 ${res.status}`);
+  }));
 }
 
 async function writeModelCache(row: ModelCacheRow & { last_error?: string | null }): Promise<void> {
@@ -741,13 +854,7 @@ async function writeModelCache(row: ModelCacheRow & { last_error?: string | null
 }
 
 async function readLocationCache(): Promise<Map<string, LocationCacheRow>> {
-  const credentials = supabaseCredentials();
-  if (!credentials) return new Map();
-  const res = await fetch(`${credentials.url}/rest/v1/notice_location_cache?select=*&limit=1000`, {
-    headers: { apikey: credentials.serviceRole, authorization: `Bearer ${credentials.serviceRole}` },
-  });
-  if (!res.ok) throw new Error(`위치 캐시 조회 실패 ${res.status}`);
-  const rows = await res.json() as LocationCacheRow[];
+  const rows = await readRestRows<LocationCacheRow>("notice_location_cache?select=*&order=notice_key.asc");
   return new Map(rows.map((row) => [row.notice_key, row]));
 }
 
@@ -835,6 +942,18 @@ function relevantAptDetails(items: RawItem[]): RawItem[] {
   });
 }
 
+function rawCollectionStatus(raw: RawItem, kind: SourceKind, now = Date.now()): { cancelled: boolean; expired: boolean } {
+  const statusText = [raw.PBLANC_STTUS_NM, raw.PBLANC_STATUS_NM, raw.PBLANC_STAT, raw.PBLANC_STATE]
+    .map((value) => text(value) ?? "")
+    .join(" ");
+  const cancelled = /(?:공고\s*)?취소/u.test(statusText);
+  const receiptEvents = eventsFor(raw, kind).filter((item) => ["receipt", "special", "rank1", "rank2", "no-priority"].includes(item.kind));
+  const receiptEnd = receiptEvents.length > 0
+    ? Math.max(...receiptEvents.map((item) => Date.parse(item.end ?? item.start)))
+    : Number.NaN;
+  return { cancelled, expired: Number.isFinite(receiptEnd) && receiptEnd < now };
+}
+
 async function refreshAptModelCache(serviceKey: string, items: RawItem[]): Promise<void> {
   const queue = [...items];
   const workers = Array.from({ length: Math.min(2, queue.length) }, async () => {
@@ -852,13 +971,18 @@ async function refreshAptModelCache(serviceKey: string, items: RawItem[]): Promi
         });
         await writeModelCache({ notice_key: key, models, fetched_at: new Date().toISOString(), retry_after: null, last_error: null });
       } catch (error) {
+        const retryAfter = isQuotaError(error) ? nextKstQuotaReset() : new Date(Date.now() + MODEL_RETRY_MS).toISOString();
         await writeModelCache({
           notice_key: key,
           models: [],
           fetched_at: new Date(0).toISOString(),
-          retry_after: new Date(Date.now() + MODEL_RETRY_MS).toISOString(),
+          retry_after: retryAfter,
           last_error: error instanceof Error ? error.message.slice(0, 500) : "unknown",
         }).catch(() => {});
+        if (isQuotaError(error)) {
+          await writeUpstreamState(retryAfter, error instanceof Error ? error.message.slice(0, 500) : "quota exceeded").catch(() => {});
+          return;
+        }
       }
     }
   });
@@ -879,7 +1003,13 @@ Deno.serve(async (req) => {
     );
   }
 
-  if (cache && Date.now() - cache.at < CACHE_TTL_MS) {
+  const requestUrl = new URL(req.url);
+  const wantsRefresh = requestUrl.searchParams.get("refresh") === "1";
+  if (wantsRefresh && !(await authorizedRefresh(req))) {
+    return new Response(JSON.stringify({ error: "unauthorized refresh" }), headers(401));
+  }
+
+  if (!wantsRefresh && cache && Date.now() - cache.at < CACHE_TTL_MS) {
     const body = activeCachedBody(cache.body);
     if (body) {
       cache.body = body;
@@ -890,12 +1020,31 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (!wantsRefresh) {
+    const snapshot = await readPublicSnapshot().catch(() => null);
+    const snapshotNotices = snapshot?.notices.filter((notice) => activeNotice(notice)) ?? [];
+    if (snapshot && snapshotNotices.length > 0) {
+      const body = JSON.stringify(snapshotNotices);
+      cache = { at: Date.now(), body, verifiedAt: snapshot.verified_at };
+      const stale = Date.now() - Date.parse(snapshot.verified_at) > SNAPSHOT_STALE_AFTER_MS;
+      return new Response(body, headers(200, {
+        "cache-control": "public, max-age=60, stale-while-revalidate=300",
+        ...(stale ? { "x-data-stale": "1" } : {}),
+        "x-verified-at": snapshot.verified_at,
+      }));
+    }
+  }
+
   const serviceKey = serviceKeyParam();
   if (!serviceKey) {
     return new Response(JSON.stringify({ error: "청약홈 실공고 연결 키가 설정되지 않았습니다." }), headers(503));
   }
 
   try {
+    const upstreamState = await readUpstreamState().catch(() => null);
+    if (upstreamState?.retry_after && Date.parse(upstreamState.retry_after) > Date.now()) {
+      throw new Error(`청약홈 API 재시도 대기 중 ${upstreamState.retry_after}`);
+    }
     const detailParams = { "cond[RCRIT_PBLANC_DE::GTE]": recentAnnouncementCutoff() };
     const [remndrDetails, remndrModels, aptDetails] = await Promise.all([
       fetchAll(REMNDR_DETAIL_OPERATION, serviceKey, detailParams),
@@ -924,7 +1073,7 @@ Deno.serve(async (req) => {
       if (!cached) return true;
       if (cached.retry_after && Date.parse(cached.retry_after) > Date.now()) return false;
       return Date.now() - Date.parse(cached.fetched_at) >= MODEL_CACHE_TTL_MS;
-    });
+    }).slice(0, MAX_MODEL_REFRESH_PER_RUN);
     if (refreshTargets.length > 0) {
       await refreshAptModelCache(serviceKey, refreshTargets);
       aptCache = await readModelCache();
@@ -964,19 +1113,41 @@ Deno.serve(async (req) => {
         );
       }),
     ];
-    const notices = normalized
+    const collectedNotices = normalized
       .filter((notice): notice is NonNullable<typeof notice> => notice !== null)
       .filter((notice) => notice.type !== "일반공급" || notice.modelDataStatus === "collected")
       .filter(activeNotice)
       .sort((a, b) => Date.parse(a.receiptStart) - Date.parse(b.receiptStart));
 
+    const blockedNoticeIds = new Set(normalized
+      .filter((notice): notice is NonNullable<typeof notice> => notice !== null)
+      .filter((notice) => notice.type === "일반공급" && notice.modelDataStatus !== "collected" && activeNotice(notice))
+      .map((notice) => notice.id));
+    const previousSnapshot = await readPublicSnapshot().catch(() => null);
+    const preservedNotices = (previousSnapshot?.notices ?? [])
+      .filter(activeNotice)
+      .filter((notice) => blockedNoticeIds.has(String(notice.id ?? "")));
+    const mergedById = new Map<string, Record<string, unknown>>();
+    for (const notice of [...preservedNotices, ...collectedNotices]) mergedById.set(String(notice.id), notice);
+    const notices = [...mergedById.values()]
+      .sort((a, b) => Date.parse(String(a.receiptStart)) - Date.parse(String(b.receiptStart)));
+    const publishedNoticeIds = new Set(notices.map((notice) => String(notice.id)));
+    const publishedConflicts = collectionConflicts.filter((conflict) => publishedNoticeIds.has(conflict.noticeKey));
+
+    const rawStatuses = [
+      ...remndrDetails.map((raw) => rawCollectionStatus(raw, "remndr")),
+      ...aptDetails.map((raw) => rawCollectionStatus(raw, "apt")),
+    ];
+
     const stats: CollectionStats = {
       fetched: remndrDetails.length + aptDetails.length,
       valid: normalized.filter((notice) => notice !== null).length,
       rejected: normalized.filter((notice) => notice !== null && !isValidNotice(notice)).length,
-      conflict: collectionConflicts.length + notices.filter((notice) => documentCache.get(`${notice.manageNo ?? ""}-${notice.pblancNo ?? ""}`)?.status === "conflict").length,
-      expired: normalized.filter((notice) => notice !== null && Date.parse(notice.receiptEnd) < Date.now()).length,
-      cancelled: normalized.filter((notice) => notice?.cancelled === true).length,
+      conflict: publishedConflicts.length + notices.filter((notice) => documentCache.get(`${notice.manageNo ?? ""}-${notice.pblancNo ?? ""}`)?.status === "conflict").length,
+      expired: rawStatuses.filter((status) => status.expired).length,
+      cancelled: rawStatuses.filter((status) => status.cancelled).length,
+      modelBlocked: blockedNoticeIds.size,
+      preserved: preservedNotices.length,
       published: notices.length,
     };
     console.log(JSON.stringify({ event: "homebom_notice_collection", ...stats, verifiedAt }));
@@ -984,8 +1155,10 @@ Deno.serve(async (req) => {
 
     await Promise.all([
       writePublicSnapshot(notices, stats, verifiedAt),
-      writeCollectionConflicts(collectionConflicts),
+      reconcileCollectionConflicts(notices.map((notice) => notice.id), publishedConflicts),
     ]);
+
+    await writeUpstreamState(null, null).catch(() => {});
 
     const body = JSON.stringify(notices);
     cache = { at: Date.now(), body, verifiedAt };
@@ -994,6 +1167,9 @@ Deno.serve(async (req) => {
       "x-verified-at": verifiedAt,
     }));
   } catch (err) {
+    if (isQuotaError(err)) {
+      await writeUpstreamState(nextKstQuotaReset(), err instanceof Error ? err.message.slice(0, 500) : "quota exceeded").catch(() => {});
+    }
     const snapshot = await readPublicSnapshot().catch(() => null);
     const snapshotNotices = snapshot?.notices.filter((notice) => activeNotice(notice)) ?? [];
     if (snapshot && snapshotNotices.length > 0) {

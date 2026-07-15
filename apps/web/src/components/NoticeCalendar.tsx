@@ -62,6 +62,7 @@ export function NoticeCalendar({ notices, now, selectedKey, onSelectDay }: Props
             const hasSchedule = count > 0 || cell.ends > 0;
             const selected = selectedKey === cell.key;
             const detail = [
+              cell.announcements ? `공고 ${cell.announcements}건` : "",
               cell.starts ? `접수 ${cell.starts}건` : "",
               cell.ends ? `마감 ${cell.ends}건` : "",
               cell.winners ? `발표 ${cell.winners}건` : "",

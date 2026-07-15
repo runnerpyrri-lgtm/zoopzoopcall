@@ -1,11 +1,12 @@
 {
   "name": "homebom",
   "private": true,
-  "version": "0.12.0",
+  "version": "0.13.0",
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
+    "validate:sw": "node --check apps/web/public/sw.js && node scripts/validate-service-worker-cache-scope.mjs",
     "test:e2e": "pnpm --filter @zoopzoopcall/web test:e2e"
   },
   "packageManager": "pnpm@9.15.9"

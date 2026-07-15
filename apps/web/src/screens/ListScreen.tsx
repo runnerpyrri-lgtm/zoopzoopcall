@@ -7,7 +7,6 @@ import { AppHeader } from "../components/AppHeader";
 import { FilterBar, type StatusView, type TypeFilter } from "../components/FilterBar";
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeCalendar } from "../components/NoticeCalendar";
-import { PermissionBanner } from "../components/PermissionBanner";
 import { compareScheduleEvents, eventsOnDate, noticeMatchesEventFilter, type EventFilter } from "../components/noticeSchedule";
 import { useNow } from "../hooks/useNow";
 import type { NoticeSource } from "../hooks/useNotices";
@@ -128,8 +127,6 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
           {" "}신청 전 청약홈 원문을 다시 확인해 주세요.
         </div>
       )}
-
-      <PermissionBanner compact hidePrompt />
 
       {!loading && (
         <NoticeCalendar
