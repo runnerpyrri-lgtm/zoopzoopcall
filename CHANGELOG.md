@@ -6,6 +6,7 @@
 - 하단 메뉴를 48px 이상 터치 영역과 72px·safe-area 규격에 맞추고, 설정에 5개 앱 전체·설치와 업데이트·지원·개인정보·앱 빌드 메타를 연결했다. Android 설치 프롬프트와 iPhone Safari 홈 화면 추가 fallback을 앱 안에서 제공한다.
 - 기본 noop인 동의 기반 분석 adapter를 공고 필터·상세 열기·공식 신청·알림 활성화·stale 복구에 연결했다. HTTPS endpoint와 명시적 동의가 모두 없으면 네트워크 요청을 보내지 않으며 공고명·주소·검색 원문은 payload로 받지 않는다.
 - 비활성 광고 placeholder를 화면과 스타일에서 제거했다. 서비스워커의 `cache.put` 실패가 정상 네트워크 응답을 가리지 않도록 격리하고 실행 회귀 테스트를 추가했다.
+- 웹의 React 18과 Expo의 React 19를 유지하되 pnpm 의존성 hoisting을 끄고 웹 타입 기준을 루트에 명시해, 깨끗한 CI 설치에서도 라우터 JSX 타입이 섞이지 않게 했다.
 - 루트·웹·코어 버전과 서비스워커 캐시를 `0.14.0`·`zzc-v0.14.0`으로 맞췄다. 기존 공고 ID, `zzc:subs:v2`, `zzc:fired:v1`, `zzc:notice-snapshots:v1`, 공식 공고·접수·발표·계약 일정과 `/homebom/` 경로는 유지한다.
 
 ## 0.13.0

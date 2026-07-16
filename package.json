@@ -12,5 +12,9 @@
     "test:e2e": "pnpm --filter @zoopzoopcall/web test:e2e",
     "audit:prod": "node scripts/audit-production.mjs"
   },
+  "devDependencies": {
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7"
+  },
   "packageManager": "pnpm@9.15.9"
 }

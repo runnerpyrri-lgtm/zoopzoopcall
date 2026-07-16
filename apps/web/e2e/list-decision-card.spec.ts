@@ -140,13 +140,18 @@ test("달력 공고 마커의 접근성 이름과 상세 알림 딥링크가 실
 });
 
 test("직접 상세 URL은 데이터 로딩 중 공고 없음으로 오인하지 않는다", async ({ page }) => {
+  let releaseResponse!: () => void;
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
   await page.route("https://homebom.test/notices", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await responseGate;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([notice]) });
   });
   await page.goto(`#/notice/${notice.id}`);
   await expect(page.getByText("공고를 불러오는 중입니다…", { exact: true })).toBeVisible();
   await expect(page.getByText("공고를 찾을 수 없어요", { exact: true })).toHaveCount(0);
+  releaseResponse();
   await expect(page.getByRole("heading", { name: /래미안 원펜타스/ })).toBeVisible();
 });
 
