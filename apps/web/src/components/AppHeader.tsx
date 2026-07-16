@@ -1,6 +1,7 @@
 // 청약봄의 공통 앱바와 서비스 상태를 표시한다.
 import type { ReactNode } from "react";
 import type { NoticeSource } from "../hooks/useNotices";
+import familyWordmarkUrl from "../generated/robom-family/wordmark.svg";
 
 type Props = {
   title?: string;
@@ -20,9 +21,10 @@ export function AppHeader({ title = "청약봄", source, action, compact = false
       <div className="appbar__copy">
         <h1 className="appbar__title">
           {title === "청약봄" ? (
-            <span className="appbar__wordmark" aria-label="청약봄">
+            <span className="appbar__wordmark">
+              <span className="sr-only">청약봄</span>
               <span className="appbar__prefix" aria-hidden="true">청약</span>
-              <img className="appbar__bom" src={`${import.meta.env.BASE_URL}brand/bom-homebom.svg`} alt="" aria-hidden="true" />
+              <img className="appbar__bom" src={familyWordmarkUrl} alt="" aria-hidden="true" />
             </span>
           ) : (
             title

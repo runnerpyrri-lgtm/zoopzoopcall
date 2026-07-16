@@ -14,6 +14,7 @@ pnpm install --frozen-lockfile
 git diff --check
 pnpm typecheck
 pnpm test
+pnpm validate:family
 VITE_NOTICES_URL=https://neqjmxaneibobpedgsnl.functions.supabase.co/notices pnpm build
 pnpm test:e2e
 pnpm validate:sw
@@ -22,6 +23,8 @@ VITE_NOTICES_URL=https://neqjmxaneibobpedgsnl.functions.supabase.co/notices node
 
 - SPA 라우팅은 HashRouter라 404 우회가 필요 없다.
 - `vite.config.ts`의 `base: "/homebom/"`가 저장소 이름과 일치해야 한다.
+- 패밀리 생성물과 `family.lock.json`은 robom 정본 `5a63eab4f6930837f9877efd187562b85530a81a`에서만 갱신하며, CI 재사용 워크플로도 같은 SHA에 고정한다.
+- 빌드는 `feature-flags.json`과 `auth-config.json`을 포함한 공개 패밀리 계약 6개를 `dist/robom-family/`에 복제하고 hash를 다시 검증한다.
 
 ## 실데이터 연결 (사람 작업 + 함수 배포)
 

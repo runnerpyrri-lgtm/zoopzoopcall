@@ -44,8 +44,17 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Verify Android and iOS native exports
+        run: pnpm --filter @robom/homebom-mobile check
+
+      - name: Audit production dependencies
+        run: pnpm audit:prod
+
       - name: Unit test
         run: pnpm test
+
+      - name: Family contract
+        run: pnpm validate:family
 
       - name: Build (base "/homebom/" 유지)
         env:
@@ -71,6 +80,9 @@ jobs:
 
       - name: base path 유지 검증 (깨졌으면 배포 중단)
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
+
+      - name: 패밀리 공개 자산 검증
+        run: pnpm --filter @zoopzoopcall/web validate:family-assets
 
       - name: 서비스워커 문법 검증
         run: pnpm validate:sw

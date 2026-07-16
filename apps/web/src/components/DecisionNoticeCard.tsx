@@ -17,6 +17,7 @@ import {
 import { Countdown } from "./Countdown";
 import { CorrectionBadge, StatusBadge } from "./StatusBadge";
 import { noticeSchedule } from "./noticeSchedule";
+import { trackFamilyEvent } from "../analytics/familyAnalytics";
 
 type Props = {
   notice: Notice;
@@ -210,7 +211,7 @@ export function DecisionNoticeCard({ notice, now, subscribed }: Props) {
         </div>}
       </div>
 
-      <a className="btn btn--primary btn--big decision-card__apply" href={notice.applyHomeUrl} target="_blank" rel="noreferrer">
+      <a className="btn btn--primary btn--big decision-card__apply" href={notice.applyHomeUrl} target="_blank" rel="noreferrer" onClick={() => void trackFamilyEvent("official_apply_clicked", "notice-list")}>
         {isApplyDeepLink ? (status === "접수중" ? "청약홈에서 신청" : "청약홈 접수처 열기") : "청약홈 열기"}
       </a>
       <div className="decision-card__secondary-actions">
@@ -298,7 +299,7 @@ export function DecisionNoticeCard({ notice, now, subscribed }: Props) {
               {notice.moveInMonth && <InfoRow label="입주 예정" value={<span className="detail__nowrap">{notice.moveInMonth}</span>} />}
               {company && <InfoRow label="시행·시공" value={company} wide />}
               {notice.contactPhone && <InfoRow label="문의" value={<span className="detail__nowrap">{notice.contactPhone}</span>} />}
-              <InfoRow label="공식 접수처" value={<a href={notice.applyHomeUrl} target="_blank" rel="noreferrer">청약홈</a>} wide />
+              <InfoRow label="공식 접수처" value={<a href={notice.applyHomeUrl} target="_blank" rel="noreferrer" onClick={() => void trackFamilyEvent("official_apply_clicked", "notice-list")}>청약홈</a>} wide />
               {notice.noticeUrl && <InfoRow label="모집공고 원문" value={<a href={notice.noticeUrl} target="_blank" rel="noreferrer">청약홈 공고문 열기</a>} wide />}
             </dl>
           </section>}

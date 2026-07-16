@@ -1,0 +1,32 @@
+{
+  "name": "@robom/homebom-mobile",
+  "version": "0.14.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "start:go": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "expo:config": "expo config --type public",
+    "validate:config": "node scripts/validate-config.mjs",
+    "export:android": "expo export --platform android --output-dir dist/android",
+    "export:ios": "expo export --platform ios --output-dir dist/ios",
+    "check": "pnpm run typecheck && pnpm run validate:config && pnpm run expo:config && pnpm run export:android && pnpm run export:ios"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.6",
+    "expo-dev-client": "~57.0.5",
+    "expo-notifications": "~57.0.5",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}

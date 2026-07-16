@@ -6,3 +6,4 @@ dist/
 .DS_Store
 Thumbs.db
 supabase/.temp/
+apps/web/test-results/

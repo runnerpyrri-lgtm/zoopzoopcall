@@ -1,23 +1,43 @@
-// 설정과 앱 정보. 로봄 패밀리 공통 설정 UI 킷(야외봄 정본)을 청약봄 팔레트로 렌더한다.
-// 구조: 브랜드 헤더+구분선 → 앱 소개 → 알림 권한 → 다른 로봄 앱 → 문의 → 데이터 출처 → 정책과 정보 → 앱 메타 카드.
-import { useEffect, useState, type ReactNode } from "react";
+// 설정 화면에서 패밀리 앱·PWA 설치·지원·개인정보·앱 메타를 한 흐름으로 제공한다.
+import { useEffect, useState } from "react";
 import type { NoticeSource } from "../hooks/useNotices";
 import packageInfo from "../../package.json";
+import familyMeta from "../generated/robom-family/app-meta.json";
 import { AppHeader } from "../components/AppHeader";
 import { notificationSupport, requestPermission } from "../notify/notifications";
+import {
+  analyticsConsentGranted,
+  analyticsEndpointConfigured,
+  setAnalyticsConsent,
+} from "../analytics/familyAnalytics";
+import { usePwaInstall } from "../pwa/PwaInstallProvider";
 
 const APP_VERSION = packageInfo.version;
 const CONTACT = "hello.robom@gmail.com";
 const BUILD_SHA = import.meta.env.VITE_BUILD_SHA || "local";
-const PWA_CACHE = "zzc-v24";
+const PWA_CACHE = "zzc-v" + APP_VERSION;
+const DATA_VERSION = "한국부동산원 청약홈 공고";
+
+const APP_DESCRIPTIONS: Record<string, string> = {
+  outbom: "날씨·대기질로 야외 활동 시간을 고르는 앱",
+  homebom: "공고·접수·발표·계약 일정을 챙기는 앱",
+  runningbom: "러닝 대회 접수 시작·마감을 챙기는 앱",
+  calendarbom: "가족 일정과 알림을 함께 관리하는 앱",
+  certbom: "조건에 맞는 자격증과 시험 일정을 찾는 앱",
+};
 
 function mailto(purpose: string): string {
-  const subject = `[청약봄] ${purpose} 문의 · v${APP_VERSION}`;
-  return `mailto:${CONTACT}?subject=${encodeURIComponent(subject)}`;
+  const subject = "[청약봄] " + purpose + " 문의 · v" + APP_VERSION;
+  return "mailto:" + CONTACT + "?subject=" + encodeURIComponent(subject);
 }
 
-// 폰 설정 딥링크(웹 최선책): Android Chrome 계열은 intent: URI로 일부 시스템 설정을 열 수 있다.
-// 화면이 전환되지 않으면(비Android·미지원) 안내 폴백을 보여준다.
+function formatVerifiedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+}
+
+// 폰 설정 딥링크(웹 최선책): Android Chrome 계열은 intent URI로 일부 시스템 설정을 열 수 있다.
 function openAndroidSetting(action: string, onFallback: () => void) {
   if (!/android/i.test(navigator.userAgent)) {
     onFallback();
@@ -31,18 +51,17 @@ function openAndroidSetting(action: string, onFallback: () => void) {
     },
     { once: true },
   );
-  window.location.href = `intent:#Intent;action=${action};end`;
+  window.location.href = "intent:#Intent;action=" + action + ";end";
 }
 
-// 패밀리 공통 20px 선 아이콘(1.9 라운드) — 야외봄 설정과 동일 계열.
-function Ic({ d, extra }: { d: string; extra?: ReactNode }) {
+function Ic({ d }: { d: string }) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
       <path d={d} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" />
-      {extra}
     </svg>
   );
 }
+
 const IC = {
   house: "M4 10.6 12 4l8 6.6v8.5a1 1 0 0 1-1 1h-4.7v-4.9a2.3 2.3 0 0 0-4.6 0v4.9H5a1 1 0 0 1-1-1Z",
   mail: "M4 6h16v12H4zM4 7l8 6 8-6",
@@ -55,18 +74,22 @@ const IC = {
   bell: "M12 3a6 6 0 0 0-6 6v3.6l-1.6 3.2a.7.7 0 0 0 .63 1.02h13.94a.7.7 0 0 0 .63-1.02L18 12.6V9a6 6 0 0 0-6-6Zm-2.3 15.5a2.4 2.4 0 0 0 4.6 0",
   building: "M6 20.5V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v15.5M4 20.5h16M9.5 8h1.6m3.4 0h-1.6M9.5 11.5h1.6m3.4 0h-1.6M9.5 15h1.6m3.4 0h-1.6",
   db: "M5 6.5c0-1.5 3.1-2.7 7-2.7s7 1.2 7 2.7-3.1 2.7-7 2.7-7-1.2-7-2.7Zm0 0v11c0 1.5 3.1 2.7 7 2.7s7-1.2 7-2.7v-11M5 12c0 1.5 3.1 2.7 7 2.7s7-1.2 7-2.7",
+  install: "M12 3v12m-5-5 5 5 5-5M4 19v2h16v-2",
+  refresh: "M20 7v5h-5M4 17v-5h5m9.7-3A8 8 0 0 0 5.2 7M5.3 15A8 8 0 0 0 18.8 17",
+  accessibility: "M12 4.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM4 7h16m-8 0v14m0-9-5 9m5-9 5 9",
 } as const;
 
 function CardHead({ icon, title, id }: { icon: string; title: string; id: string }) {
   return (
     <div className="settings-card-head">
       <span className="settings-chip" aria-hidden="true"><Ic d={icon} /></span>
-      <h3 id={id}>{title}</h3>
+      <h2 id={id}>{title}</h2>
     </div>
   );
 }
 
 type RowProps = { href: string; icon: string; title: string; sub?: string; badge?: string; newTab?: boolean };
+
 function SettingsRow({ href, icon, title, sub, badge, newTab = true }: RowProps) {
   return (
     <a className="settings-row" href={href} {...(newTab ? { target: "_blank", rel: "noreferrer" } : {})}>
@@ -77,13 +100,20 @@ function SettingsRow({ href, icon, title, sub, badge, newTab = true }: RowProps)
   );
 }
 
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return <div className="app-meta-row"><dt>{label}</dt><dd>{value}</dd></div>;
+}
+
 export function InfoScreen({ source }: { source: NoticeSource }) {
-  // notificationSupport()가 "unsupported" 또는 현재 권한 문자열을 반환한다 — Notification 전역을
-  // 직접 읽으면 미지원 브라우저(아이폰 사파리 탭 등)에서 ReferenceError로 설정 화면 전체가 죽는다.
   const [permission, setPermission] = useState<string>(() => notificationSupport());
   const [guide, setGuide] = useState<string | null>(null);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [installStatus, setInstallStatus] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [analyticsConsent, setAnalyticsConsentState] = useState(analyticsConsentGranted);
+  const pwa = usePwaInstall();
+  const analyticsReady = analyticsEndpointConfigured();
 
-  // 폰 설정에서 권한을 바꾸고 돌아온 경우 화면 문구를 실제 권한 상태와 다시 맞춘다.
   useEffect(() => {
     const sync = () => setPermission(notificationSupport());
     window.addEventListener("focus", sync);
@@ -103,6 +133,40 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
           ? "이 브라우저는 알림을 지원하지 않습니다."
           : "알림 권한을 아직 요청하지 않았어요.";
 
+  const installLabel = pwa.canPrompt
+    ? "이 기기에 청약봄 설치"
+    : pwa.isIosSafari
+      ? "아이폰 설치 방법 보기"
+      : "설치 방법 보기";
+
+  const onInstall = async () => {
+    setInstallStatus(null);
+    const outcome = await pwa.promptInstall();
+    if (outcome === "manual") {
+      setShowInstallGuide(true);
+      return;
+    }
+    setShowInstallGuide(false);
+    setInstallStatus(outcome === "accepted" ? "설치 요청을 보냈습니다." : "설치를 취소했습니다. 언제든 다시 시도할 수 있어요.");
+  };
+
+  const onUpdate = async () => {
+    setUpdateStatus("업데이트를 확인하고 있어요…");
+    const outcome = await pwa.checkForUpdate();
+    const messages = {
+      checked: "업데이트 확인을 마쳤습니다. 새 버전은 자동으로 적용돼요.",
+      ready: "새 버전을 적용하고 있어요. 잠시 뒤 화면이 새로 열립니다.",
+      unsupported: "이 브라우저에서는 자동 업데이트 확인을 지원하지 않아요.",
+      failed: "지금은 업데이트를 확인할 수 없어요. 네트워크 연결 후 다시 시도해 주세요.",
+    } as const;
+    setUpdateStatus(messages[outcome]);
+  };
+
+  const toggleAnalytics = () => {
+    const next = !analyticsConsent;
+    if (setAnalyticsConsent(next)) setAnalyticsConsentState(next);
+  };
+
   return (
     <div className="screen settings-screen">
       <AppHeader source={source} />
@@ -110,13 +174,11 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       <section className="settings-card" aria-labelledby="about-homebom">
         <CardHead icon={IC.building} title="청약봄은" id="about-homebom" />
         <p className="settings-note">
-          일반공급·특별공급·순위별 접수와 무순위·잔여세대·불법행위 재공급 일정을 함께 챙기는 알림
-          서비스입니다.
+          일반공급·특별공급·순위별 접수와 무순위·잔여세대·불법행위 재공급의 공고·접수·발표·계약 일정을 함께 챙기는 서비스입니다.
         </p>
+        <p className="settings-note">로그인 없이 사용할 수 있고, 알림 설정은 이 기기에만 저장됩니다.</p>
         <p className="settings-note">
-          청약 신청과 자격 확인은 언제나{" "}
-          <a href="https://www.applyhome.co.kr" target="_blank" rel="noreferrer">청약홈(applyhome.co.kr)</a>
-          에서 직접 진행하셔야 합니다.
+          청약 신청과 자격 확인은 언제나 <a href="https://www.applyhome.co.kr" target="_blank" rel="noreferrer">청약홈(applyhome.co.kr)</a>에서 직접 진행하셔야 합니다.
         </p>
         <p className="settings-note">청약 정보는 정정될 수 있으니, 신청 전 청약홈에서 최종 내용을 한 번 더 확인해 주세요.</p>
       </section>
@@ -124,87 +186,125 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       <section className="settings-card" aria-labelledby="notify-env">
         <CardHead icon={IC.bell} title="알림 권한" id="notify-env" />
         <p className="settings-note">{permissionLabel}</p>
-        <p className="settings-note">
-          알림은 앱이 실행 중일 때 동작해요. 아이폰은 홈 화면에 추가한 아이콘(사파리 공유 → 홈
-          화면에 추가)으로 열어야 알림을 받을 수 있어요.
-        </p>
+        <p className="settings-note">알림은 앱이 실행 중일 때 동작해요. 아이폰은 홈 화면에 추가한 청약봄 아이콘으로 열어야 알림을 받을 수 있어요.</p>
         <div className="settings-deeplinks">
-          {/* denied 상태의 requestPermission()은 대부분 브라우저에서 no-op — 그때는 폰 설정 안내만 남긴다. */}
           {permission === "default" && (
-            <button
-              type="button"
-              className="primary-action"
-              onClick={() => void requestPermission().then((p) => setPermission(p))}
-            >
+            <button type="button" className="primary-action" onClick={() => void requestPermission().then((value) => setPermission(value))}>
               알림 켜기
             </button>
           )}
           <button
             type="button"
             className="ghost-action"
-            onClick={() =>
-              openAndroidSetting("android.settings.APP_NOTIFICATION_SETTINGS", () =>
-                setGuide("폰 설정 → 애플리케이션 → 사용 중인 브라우저(또는 청약봄) → 알림에서 허용으로 바꿔주세요."),
-              )
-            }
+            onClick={() => openAndroidSetting("android.settings.APP_NOTIFICATION_SETTINGS", () => setGuide("폰 설정 → 애플리케이션 → 사용 중인 브라우저(또는 청약봄) → 알림에서 허용으로 바꿔주세요."))}
           >
             폰 알림 설정 열기
           </button>
           <button
             type="button"
             className="ghost-action"
-            onClick={() =>
-              openAndroidSetting("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS", () =>
-                setGuide("폰 설정 → 배터리 → 배터리 최적화(앱 절전)에서 사용 중인 브라우저를 예외로 지정하면 알림 지연이 줄어요."),
-              )
-            }
+            onClick={() => openAndroidSetting("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS", () => setGuide("폰 설정 → 배터리 → 배터리 최적화에서 사용 중인 브라우저를 예외로 지정하면 알림 지연이 줄어요."))}
           >
             배터리 예외 설정 열기
           </button>
         </div>
-        {guide && <p className="settings-note settings-guide" role="status">{guide}</p>}
+        {guide && <p className="settings-guide" role="status">{guide}</p>}
       </section>
 
-      <section className="settings-card" aria-labelledby="family-apps">
-        <CardHead icon={IC.house} title="다른 로봄 앱" id="family-apps" />
-        <SettingsRow href="https://robom.kr/apps/outbom" icon={IC.house} title="야외봄" sub="날씨·대기질로 나가기 좋은 시간 알림" badge="웹으로 이용" />
-        <SettingsRow href="https://robom.kr/apps/runningbom" icon={IC.house} title="러닝봄" sub="러닝 대회 접수 시작·마감 알림" badge="웹으로 이용" />
-        <SettingsRow href="https://robom.kr" icon={IC.external} title="로봄 홈페이지" sub="robom.kr" />
+      <section className="settings-card" aria-labelledby="accessibility-settings">
+        <CardHead icon={IC.accessibility} title="화면과 접근성" id="accessibility-settings" />
+        <p className="settings-note">기기의 글자 크기와 브라우저 확대를 따르며, 주요 버튼과 하단 메뉴는 손가락으로 누르기 쉬운 크기를 유지합니다.</p>
       </section>
 
-      <section className="settings-card" aria-labelledby="contact-settings">
-        <CardHead icon={IC.mail} title="문의" id="contact-settings" />
-        <SettingsRow href={mailto("일반")} icon={IC.mail} title="일반 문의" sub={CONTACT} newTab={false} />
-        <SettingsRow href={mailto("광고·제휴")} icon={IC.spark} title="광고·제휴 문의" sub="앱명·용도·버전이 제목에 포함돼요." newTab={false} />
+      <section className="settings-card" aria-labelledby="install-update">
+        <CardHead icon={IC.install} title="설치와 업데이트" id="install-update" />
+        <p className="settings-note">
+          {pwa.isStandalone
+            ? "청약봄이 홈 화면에 설치되어 있어요. 새 버전은 앱을 다시 열 때 안전하게 갱신됩니다."
+            : "설치하면 홈 화면에서 빠르게 열고, 한 번 본 화면은 네트워크가 불안정해도 다시 열 수 있어요."}
+        </p>
+        <div className="settings-deeplinks">
+          {!pwa.isStandalone && <button type="button" className="primary-action" onClick={() => void onInstall()}>{installLabel}</button>}
+          <button type="button" className="ghost-action" onClick={() => void onUpdate()}><Ic d={IC.refresh} />업데이트 확인</button>
+        </div>
+        {showInstallGuide && (
+          <p className="settings-guide" role="status">
+            {pwa.isIosSafari
+              ? "Safari의 공유 버튼을 누른 뒤 ‘홈 화면에 추가’와 ‘추가’를 차례로 선택하세요."
+              : "브라우저 메뉴에서 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요."}
+          </p>
+        )}
+        {installStatus && <p className="settings-guide" role="status">{installStatus}</p>}
+        {updateStatus && <p className="settings-guide" role="status">{updateStatus}</p>}
+        <p className="settings-note"><a href={familyMeta.stableInstallUrl} target="_blank" rel="noreferrer">플랫폼별 안정 설치 안내 열기</a></p>
       </section>
 
       <section className="settings-card" aria-labelledby="data-source">
-        <CardHead icon={IC.db} title="데이터 출처" id="data-source" />
+        <CardHead icon={IC.db} title="데이터 출처와 확인 시각" id="data-source" />
         <p className="settings-note">
-          공공데이터포털의 <strong>한국부동산원 청약홈 분양정보 조회 서비스</strong>를 사용합니다.
+          공공데이터포털의 <strong>한국부동산원 청약홈 분양정보 조회 서비스</strong>와 공식 모집공고문을 사용합니다.
           {source === "not-connected" && <> 실공고 연결이 완료되지 않은 상태에서는 임의 공고를 표시하지 않습니다.</>}
-          {" "}접수 일정은 정정 공고로 바뀔 수 있으니 신청 전 모집공고 원문을 확인하세요. 청약봄은 당첨
-          가능성이나 자격을 판정하지 않습니다.
+          {source === "stale" && <> 현재는 마지막 검증본을 보여드리고 있습니다.</>}
         </p>
+        <p className="settings-note">패밀리 정본 마지막 확인 {formatVerifiedAt(familyMeta.lastVerifiedAt)}. 신청 전 모집공고 원문을 확인하세요.</p>
       </section>
 
-      <section className="settings-card" aria-labelledby="legal-settings">
-        <CardHead icon={IC.shield} title="정책과 정보" id="legal-settings" />
-        <SettingsRow href="https://robom.kr/privacy/homebom" icon={IC.shield} title="개인정보처리방침" />
-        <SettingsRow href="https://robom.kr/terms" icon={IC.file} title="이용약관" />
-        <SettingsRow href="https://github.com/robom-labs/homebom" icon={IC.code} title="오픈소스 라이선스" />
+      <section className="settings-card" aria-labelledby="family-apps">
+        <CardHead icon={IC.house} title="로봄 패밀리 앱 5개" id="family-apps" />
+        {familyMeta.familyApps.map((app) => (
+          <SettingsRow
+            key={app.id}
+            href={app.installUrl}
+            icon={IC.house}
+            title={app.name}
+            sub={APP_DESCRIPTIONS[app.id] || "설치·웹 사용 안내"}
+            badge={app.id === familyMeta.id ? "현재 앱" : "설치·열기"}
+          />
+        ))}
       </section>
 
-      <section className="app-meta-card" aria-label="앱 정보">
-        <span className="app-meta-icon" aria-hidden="true">
-          <img src={`${import.meta.env.BASE_URL}icons/icon-v2.svg`} alt="" width="30" height="30" />
-        </span>
-        <div>
-          <strong>청약봄</strong>
-          <small>개발자 · 로봄</small>
-          <small className="app-build">빌드 {BUILD_SHA.slice(0, 7)} · PWA {PWA_CACHE} · 데이터 한국부동산원 청약홈</small>
+      <section className="settings-card" aria-labelledby="support-settings">
+        <CardHead icon={IC.mail} title="지원과 의견 보내기" id="support-settings" />
+        <SettingsRow href={familyMeta.supportUrl} icon={IC.external} title="지원 센터" sub="사용 방법과 자주 묻는 질문" />
+        <SettingsRow href={mailto("일반")} icon={IC.mail} title="일반 문의" sub={CONTACT} newTab={false} />
+        <SettingsRow href={mailto("오류·정보 정정")} icon={IC.spark} title="오류·정보 정정" sub="앱 버전이 메일 제목에 포함돼요." newTab={false} />
+      </section>
+
+      <section className="settings-card" aria-labelledby="privacy-settings">
+        <CardHead icon={IC.shield} title="개인정보와 공식 안내" id="privacy-settings" />
+        <SettingsRow href={familyMeta.privacyUrl} icon={IC.shield} title="개인정보처리방침" sub="수집 항목과 이용 목적" />
+        <SettingsRow href="https://robom.kr/terms" icon={IC.file} title="이용약관" sub="서비스 이용 조건" />
+        <SettingsRow href="https://www.applyhome.co.kr" icon={IC.external} title="청약홈 공식 사이트" sub="신청·자격 확인·최신 공고" />
+        <SettingsRow href="https://github.com/robom-labs/homebom" icon={IC.code} title="오픈소스와 라이선스" sub="소스 코드와 사용한 소프트웨어" />
+        <div className="analytics-consent">
+          <strong>익명 사용 개선 데이터</strong>
+          <p role="status">
+            {!analyticsReady
+              ? "현재 수집 서버가 연결되지 않아 어떤 사용 데이터도 전송하지 않습니다."
+              : analyticsConsent
+                ? "개인정보 없는 핵심 행동 전송을 허용했습니다. 언제든 끌 수 있어요."
+                : "기본값은 꺼짐이며, 동의하기 전에는 어떤 사용 데이터도 보내지 않습니다."}
+          </p>
+          {analyticsReady && (
+            <button type="button" className="ghost-action" aria-pressed={analyticsConsent} onClick={toggleAnalytics}>
+              {analyticsConsent ? "익명 데이터 전송 끄기" : "익명 데이터 전송 허용"}
+            </button>
+          )}
         </div>
-        <span className="app-version">v{APP_VERSION}</span>
+      </section>
+
+      <section className="settings-card settings-card--meta" aria-labelledby="app-meta-settings">
+        <CardHead icon={IC.code} title="앱 정보" id="app-meta-settings" />
+        <dl className="app-meta-list">
+          <MetaRow label="앱 이름" value={familyMeta.name + " · " + familyMeta.englishName} />
+          <MetaRow label="버전" value={APP_VERSION} />
+          <MetaRow label="빌드 SHA" value={BUILD_SHA.slice(0, 7)} />
+          <MetaRow label="패밀리 규격" value={familyMeta.familySpecVersion} />
+          <MetaRow label="서비스 워커 캐시" value={PWA_CACHE} />
+          <MetaRow label="데이터 버전" value={DATA_VERSION} />
+          <MetaRow label="마지막 확인" value={formatVerifiedAt(familyMeta.lastVerifiedAt)} />
+          <MetaRow label="배포 방식" value={familyMeta.deployProvider} />
+        </dl>
       </section>
     </div>
   );

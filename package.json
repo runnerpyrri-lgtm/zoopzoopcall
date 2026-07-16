@@ -1,13 +1,16 @@
 {
   "name": "homebom",
   "private": true,
-  "version": "0.13.0",
+  "version": "0.14.0",
   "scripts": {
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm validate:web-shell",
     "typecheck": "pnpm -r typecheck",
-    "build": "pnpm -r build",
-    "validate:sw": "node --check apps/web/public/sw.js && node scripts/validate-service-worker-cache-scope.mjs",
-    "test:e2e": "pnpm --filter @zoopzoopcall/web test:e2e"
+    "build": "pnpm validate:web-shell && pnpm -r build",
+    "validate:web-shell": "node scripts/validate-web-shell.mjs",
+    "validate:family": "node scripts/verify-family.mjs apps/web/src/generated/robom-family family.lock.json",
+    "validate:sw": "node --check apps/web/public/sw.js && node scripts/validate-service-worker-cache-scope.mjs && node --test scripts/service-worker.test.mjs",
+    "test:e2e": "pnpm --filter @zoopzoopcall/web test:e2e",
+    "audit:prod": "node scripts/audit-production.mjs"
   },
   "packageManager": "pnpm@9.15.9"
 }

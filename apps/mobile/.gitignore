@@ -1,0 +1,16 @@
+# Expo 네이티브 빌드 산출물과 로컬 자격 증명을 제외한다.
+.expo/
+dist/
+android/
+ios/
+.env
+.env.*
+!.env.example
+credentials.json
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision

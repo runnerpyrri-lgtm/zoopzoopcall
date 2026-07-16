@@ -11,6 +11,13 @@ permissions:
   contents: read
 
 jobs:
+  family-contract:
+    uses: robom-labs/robom/.github/workflows/family-contract.yml@5a63eab4f6930837f9877efd187562b85530a81a
+    with:
+      generated-dir: apps/web/src/generated/robom-family
+      lock-file: family.lock.json
+      manifest-file: apps/web/public/manifest.webmanifest
+
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +29,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: git diff --check
+      - name: Android·iOS 네이티브 검증
+        run: pnpm --filter @robom/homebom-mobile check
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
@@ -29,6 +38,8 @@ jobs:
           # deploy-pages.yml 과 동일한 공개 실공고 엔드포인트. 비밀값이 아니며,
           # CI가 프로덕션과 같은 번들 구성을 검증하도록 맞춘다.
           VITE_NOTICES_URL: https://neqjmxaneibobpedgsnl.functions.supabase.co/notices
+      - name: Production dependency audit
+        run: pnpm audit:prod
       - run: pnpm --filter @zoopzoopcall/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - name: 실운영 API 번들 재생성
@@ -42,6 +53,8 @@ jobs:
           if grep -R -q 'homebom.test/notices' apps/web/dist/assets; then exit 1; fi
       - name: base path 유지 확인
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
+      - name: 패밀리 공개 자산 확인
+        run: pnpm --filter @zoopzoopcall/web validate:family-assets
       - name: 서비스워커 문법 확인
         run: pnpm validate:sw
       - name: 공개 API 계약 확인

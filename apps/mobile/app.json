@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "청약봄",
+    "slug": "homebom",
+    "version": "0.14.0",
+    "description": "공식 청약 공고의 접수·발표·계약 다음 행동을 확인하고 관심 일정 알림을 준비하는 청약봄",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "orientation": "portrait",
+    "scheme": "homebom",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F7F5",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "kr.robom.homebom",
+      "buildNumber": "14",
+      "supportsTablet": false,
+      "associatedDomains": [
+        "applinks:robom.kr"
+      ]
+    },
+    "android": {
+      "package": "kr.robom.homebom",
+      "versionCode": 14,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E8F5EA"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "robom.kr",
+              "pathPrefix": "/get/homebom"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#F4F7F5",
+      "barStyle": "dark-content",
+      "translucent": true
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#4DA35E",
+          "defaultChannel": "homebom-schedule"
+        }
+      ]
+    ]
+  }
+}

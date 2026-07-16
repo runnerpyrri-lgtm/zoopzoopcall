@@ -8,6 +8,7 @@ import { FilterBar, type StatusView, type TypeFilter } from "../components/Filte
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeCalendar } from "../components/NoticeCalendar";
 import { compareScheduleEvents, eventsOnDate, noticeMatchesEventFilter, type EventFilter } from "../components/noticeSchedule";
+import { trackFamilyEvent } from "../analytics/familyAnalytics";
 import { useNow } from "../hooks/useNow";
 import type { NoticeSource } from "../hooks/useNotices";
 import type { SubMap } from "../store/subscriptions";
@@ -37,6 +38,7 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
   // 캘린더에서 고른 날짜(KST YYYY-MM-DD). 선택 시 그날 접수·발표·계약 공고만 리스트로 보여준다.
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const agendaRef = useRef<HTMLHeadingElement>(null);
+  const staleTracked = useRef(false);
 
   const visibleNotices = useMemo(() => {
     const nextMonthEnd = kstMonthWindowEnd(now);
@@ -85,13 +87,33 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
   }, [counts, touched, statusView]);
 
   // 유형·지역·상태를 바꾸면 날짜 선택은 해제해 필터가 서로 충돌하지 않게 한다.
-  const onType = (t: TypeFilter) => { setSelectedDay(null); setType(t); };
-  const onRegion = (r: string) => { setSelectedDay(null); setRegion(r); };
+  const onType = (t: TypeFilter) => {
+    setSelectedDay(null);
+    setType(t);
+    void trackFamilyEvent("notice_filter_applied", "notice-list");
+  };
+  const onRegion = (r: string) => {
+    setSelectedDay(null);
+    setRegion(r);
+    void trackFamilyEvent("notice_filter_applied", "notice-list");
+  };
   const onStatusView = (s: StatusView) => {
     setSelectedDay(null);
     setTouched(true);
     setStatusView(s);
+    void trackFamilyEvent("notice_filter_applied", "notice-list");
   };
+  const onEventFilter = (value: EventFilter) => {
+    setSelectedDay(null);
+    setEventFilter(value);
+    void trackFamilyEvent("notice_filter_applied", "notice-list");
+  };
+
+  useEffect(() => {
+    if (source !== "stale" || staleTracked.current) return;
+    staleTracked.current = true;
+    void trackFamilyEvent("stale_recovered", "notice-list");
+  }, [source]);
 
   const active = groups[statusView];
 
@@ -170,7 +192,7 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
           onStatusView={onStatusView}
           counts={counts}
           eventFilter={eventFilter}
-          onEventFilter={(value) => { setSelectedDay(null); setEventFilter(value); }}
+          onEventFilter={onEventFilter}
         />
       )}
 
@@ -196,18 +218,10 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
       )}
 
       {!loading && filtered.length > 0 && !selectedDay && (
-        <>
-          <section className="opportunities" aria-labelledby="notice-list-title">
-            <div className="section-heading"><h2 id="notice-list-title">{statusView === "접수예정" ? "곧 열리는 기회" : HEADING[statusView]}</h2><span>{active.length}</span></div>
-            {active.length > 0 ? active.map((n) => <NoticeCard key={n.id} notice={n} now={now} subscribed={n.id in subs} />) : <p className="section-empty">이 상태의 공고가 지금은 없어요.</p>}
-          </section>
-
-          <aside className="ad-slot" aria-label="비활성 광고 영역">
-            <span>광고</span>
-            <p>추천 금융·주거 정보</p>
-            <strong>준비 중</strong>
-          </aside>
-        </>
+        <section className="opportunities" aria-labelledby="notice-list-title">
+          <div className="section-heading"><h2 id="notice-list-title">{statusView === "접수예정" ? "곧 열리는 기회" : HEADING[statusView]}</h2><span>{active.length}</span></div>
+          {active.length > 0 ? active.map((n) => <NoticeCard key={n.id} notice={n} now={now} subscribed={n.id in subs} />) : <p className="section-empty">이 상태의 공고가 지금은 없어요.</p>}
+        </section>
       )}
     </div>
   );

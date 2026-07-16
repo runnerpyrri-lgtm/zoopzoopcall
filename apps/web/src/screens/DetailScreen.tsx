@@ -30,6 +30,7 @@ import {
 } from "../notify/notifications";
 import type { useSubscriptions } from "../hooks/useSubscriptions";
 import { noticeSchedule } from "../components/noticeSchedule";
+import { trackFamilyEvent } from "../analytics/familyAnalytics";
 
 type Props = {
   notices: Notice[];
@@ -117,7 +118,14 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
   const [copyStatus, setCopyStatus] = useState("");
   const mapSheetRef = useRef<HTMLElement>(null);
   const mapTriggerRef = useRef<HTMLButtonElement>(null);
+  const openedNoticeId = useRef<string | null>(null);
   const notice = notices.find((item) => item.id === id);
+
+  useEffect(() => {
+    if (!notice || openedNoticeId.current === notice.id) return;
+    openedNoticeId.current = notice.id;
+    void trackFamilyEvent("notice_opened", "notice-detail");
+  }, [notice]);
 
   useEffect(() => {
     if (!notice || location.hash !== "#alerts") return;
@@ -226,6 +234,11 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
     } catch { return false; }
   })();
 
+  const enableAlert = () => {
+    subscribe(notice);
+    void trackFamilyEvent("alert_enabled", "notice-detail");
+  };
+
   const onMasterToggle = async () => {
     if (subscribed) {
       unsubscribe(notice.id);
@@ -233,7 +246,7 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
     }
     const nextPermission = permission === "default" ? await requestPermission() : permission;
     setPermission(nextPermission);
-    if (nextPermission === "granted") subscribe(notice);
+    if (nextPermission === "granted") enableAlert();
   };
 
   const onOffset = (kind: Exclude<AlertKind, "event">, off: number) => {
@@ -332,7 +345,7 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
           </div>}
         </div>
 
-        <a className="btn btn--primary btn--big decision-card__apply" href={notice.applyHomeUrl} target="_blank" rel="noreferrer">
+        <a className="btn btn--primary btn--big decision-card__apply" href={notice.applyHomeUrl} target="_blank" rel="noreferrer" onClick={() => void trackFamilyEvent("official_apply_clicked", "notice-detail")}>
           {isApplyDeepLink ? (status === "접수중" ? "청약홈에서 신청" : "청약홈 접수처 열기") : "청약홈 열기"}
         </a>
         <div className="decision-card__secondary-actions">
@@ -450,7 +463,7 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
             </button>
           </div>
           <p className="alerts-card__hint">접수 시작일 <strong>{formatKstDateTime(notice.receiptStart)}</strong> 기준으로 예약합니다.</p>
-          <PermissionBanner compact permission={permission} onPermissionChange={setPermission} onPermissionGranted={() => subscribe(notice)} />
+          <PermissionBanner compact permission={permission} onPermissionChange={setPermission} onPermissionGranted={enableAlert} />
           {subscribed && entry && (
             <>
               <div className="alerts-card__group">
