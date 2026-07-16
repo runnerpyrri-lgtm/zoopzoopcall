@@ -1,6 +1,6 @@
 // 청약봄 서비스워커. 앱 셸 캐시(오프라인)와 알림 클릭 처리를 담당한다.
 // 캐시 이름을 올리면 activate 단계에서 이전 버전 캐시(zzc-v1 등)가 자동 삭제된다.
-const CACHE = "zzc-v24";
+const CACHE = "zzc-v0.14.0";
 const CACHE_PREFIX = "zzc-";
 
 // 설치 직후 오프라인에서도 아이콘·매니페스트가 보이도록 앱 셸을 미리 캐시한다.
@@ -13,6 +13,12 @@ const APP_SHELL = [
   "./icons/icon-192-v2.png",
   "./icons/icon-512-v2.png",
   "./icons/maskable-512-v2.png",
+  "./robom-family/app-meta.json",
+  "./robom-family/settings-contract.json",
+  "./robom-family/feature-flags.json",
+  "./robom-family/auth-config.json",
+  "./robom-family/wordmark.svg",
+  "./robom-family/icons.svg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -47,7 +53,14 @@ self.addEventListener("fetch", (event) => {
       const cache = await caches.open(CACHE);
       try {
         const res = await fetch(event.request);
-        if (res.ok) await cache.put(event.request, res.clone());
+        if (res.ok) {
+          // 저장 공간 부족 등 cache.put 실패가 유효한 네트워크 응답까지 실패시키지 않게 격리한다.
+          try {
+            await cache.put(event.request, res.clone());
+          } catch {
+            // 네트워크 응답은 그대로 반환한다.
+          }
+        }
         return res;
       } catch (err) {
         const hit = await cache.match(event.request, { ignoreSearch: true });
