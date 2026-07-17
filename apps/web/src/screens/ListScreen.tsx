@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationEvent, Notice } from "@zoopzoopcall/core";
-import { formatKstDateTime, getNoticeStatus, kstMonthWindowEnd } from "@zoopzoopcall/core";
+import { formatKstDate, formatKstDateTime, getNoticeStatus, kstMonthWindowEnd } from "@zoopzoopcall/core";
 import { AppHeader } from "../components/AppHeader";
 import { FilterBar, type StatusView, type TypeFilter } from "../components/FilterBar";
 import { NoticeCard } from "../components/NoticeCard";
@@ -170,7 +170,8 @@ export function ListScreen({ notices, source, error, loading, verifiedAt, subs }
               <span>{event.label}</span>
               <strong>{notice.houseName}</strong>
               <small>{notice.region}{notice.supplyCount != null ? ` · ${notice.supplyCount.toLocaleString("ko-KR")}세대` : ""}</small>
-              <time dateTime={event.start}>{formatKstDateTime(event.start)}{event.end && event.end !== event.start ? ` ~ ${formatKstDateTime(event.end)}` : ""}</time>
+              {/* 시각이 확정되지 않은 날짜만 일정(발표일 등)에는 가짜 00:00~23:59 시각을 만들지 않는다. */}
+              <time dateTime={event.start}>{event.startTimeConfirmed ? formatKstDateTime(event.start) : formatKstDate(event.start)}{event.end && event.end !== event.start ? ` ~ ${event.endTimeConfirmed ? formatKstDateTime(event.end) : formatKstDate(event.end)}` : ""}</time>
               <div className="day-agenda__actions">
                 {/* HashRouter 앱이므로 path 하드코딩(/homebom/…)은 풀 페이지 이동 → GitHub Pages 404가 된다. */}
                 <Link to={`/notice/${encodeURIComponent(notice.id)}`}>상세</Link>
