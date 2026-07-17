@@ -1,5 +1,6 @@
 // 접수 시작·마감 알림 시각을 계산하는 순수함수. 과거 시각은 예약하지 않는다.
 import type { ApplicationEvent, Notice } from "../notice/types";
+import { kstDateKey } from "../time/kst";
 
 export type AlertKind = "open" | "close" | "event";
 
@@ -71,7 +72,22 @@ export function buildNoticeAlerts(
     .filter((a) => a.fireAt > now);
 }
 
-/** 선택한 세부 일정에 대해 하루 전·한 시간 전 알림을 만든다. */
+/** 날짜만 아는 일정(발표·계약 등)의 리마인더 기준 시각: 당일 09:00 KST. */
+const DATE_ONLY_REMINDER_HOUR_KST = "09:00";
+/** 날짜만 아는 일정의 리마인더 오프셋: 하루 전 09:00, 당일 09:00. */
+const DATE_ONLY_OFFSETS = [1440, 0];
+
+/** 일정의 KST 달력 날짜 09:00(KST)을 UTC ms로 반환한다. 정확한 시각을 주장하지 않는다. */
+function dateOnlyReminderAnchor(startIso: string): number {
+  return Date.parse(`${kstDateKey(Date.parse(startIso))}T${DATE_ONLY_REMINDER_HOUR_KST}:00+09:00`);
+}
+
+/**
+ * 선택한 세부 일정에 대한 알림을 만든다.
+ * - 정확한 시각을 아는 일정(startTimeConfirmed): 시작 시각 기준 하루 전·한 시간 전.
+ * - 날짜만 아는 일정(발표·계약 등): 청약홈이 시각을 주지 않으므로 당일 09:00 KST 기준
+ *   전일·당일 리마인더만 보낸다. 제목·본문에서 가짜 시각을 주장하지 않는다.
+ */
 export function buildEventAlerts(
   notice: Notice,
   events: ApplicationEvent[],
@@ -79,14 +95,30 @@ export function buildEventAlerts(
   offsetsMinutes = [1440, 60],
 ): NoticeAlert[] {
   if (notice.cancelled || notice.missingFromFeed || Date.parse(notice.receiptEnd) < now) return [];
-  return events.filter((event) => event.startTimeConfirmed === true).flatMap((event) => offsetsMinutes.map((off) => ({
-    id: `${event.id ?? `${notice.id}:${event.kind}`}:event:${off}`,
-    noticeId: notice.id,
-    kind: "event" as const,
-    offsetMinutes: off,
-    fireAt: Date.parse(event.start) - off * 60_000,
-    title: `[${notice.houseName}] ${event.label} ${offsetLabel(off)} 전`,
-    body: "청약홈 모집공고 원문에서 대상 지역과 신청 조건을 확인하세요.",
-    url: notice.noticeUrl ?? notice.applyHomeUrl,
-  }))).filter((alert) => alert.fireAt > now);
+  return events.flatMap((event) => {
+    const base = event.id ?? `${notice.id}:${event.kind}`;
+    if (event.startTimeConfirmed === true) {
+      return offsetsMinutes.map((off) => ({
+        id: `${base}:event:${off}`,
+        noticeId: notice.id,
+        kind: "event" as const,
+        offsetMinutes: off,
+        fireAt: Date.parse(event.start) - off * 60_000,
+        title: `[${notice.houseName}] ${event.label} ${offsetLabel(off)} 전`,
+        body: "청약홈 모집공고 원문에서 대상 지역과 신청 조건을 확인하세요.",
+        url: notice.noticeUrl ?? notice.applyHomeUrl,
+      }));
+    }
+    const anchor = dateOnlyReminderAnchor(event.start);
+    return DATE_ONLY_OFFSETS.map((off) => ({
+      id: `${base}:event:${off}`,
+      noticeId: notice.id,
+      kind: "event" as const,
+      offsetMinutes: off,
+      fireAt: anchor - off * 60_000,
+      title: off === 0 ? `[${notice.houseName}] 오늘 ${event.label}` : `[${notice.houseName}] 내일 ${event.label}`,
+      body: "정확한 시각은 아직 정해지지 않았어요. 청약홈 모집공고 원문에서 시각과 대상 조건을 확인하세요.",
+      url: notice.noticeUrl ?? notice.applyHomeUrl,
+    }));
+  }).filter((alert) => alert.fireAt > now);
 }

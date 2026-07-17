@@ -103,9 +103,42 @@ describe("buildNoticeAlerts", () => {
     ).toMatchSnapshot();
   });
 
-  it("날짜만 확인된 공고는 확정 시각 알림을 예약하지 않는다", () => {
+  it("날짜만 아는 공고는 확정 시각 기준 접수 시작/마감 알림을 예약하지 않는다 (가짜 시각 금지)", () => {
     const dateOnly = { ...notice, events: notice.events?.map((event) => ({ ...event, confirmed: false, startTimeConfirmed: false, endTimeConfirmed: false, timeSource: "date-only" as const })) };
     expect(buildNoticeAlerts(dateOnly, "open", DEFAULT_OPEN_OFFSETS, T("2026-07-01T00:00:00Z"))).toEqual([]);
-    expect(buildEventAlerts(dateOnly, dateOnly.events ?? [], T("2026-07-01T00:00:00Z"))).toEqual([]);
+    expect(buildNoticeAlerts(dateOnly, "close", DEFAULT_CLOSE_OFFSETS, T("2026-07-01T00:00:00Z"))).toEqual([]);
+  });
+
+  it("발표·계약처럼 날짜만 아는 세부 일정은 전일·당일 09:00 KST 리마인더를 만든다 (가짜 시각 미표기)", () => {
+    const dateOnly: Notice = {
+      ...notice,
+      events: [{
+        id: `${notice.id}:PRZWNER_PRESNATN_DE`,
+        noticeId: notice.id,
+        kind: "winner",
+        label: "당첨자 발표",
+        start: "2026-07-10T00:00:00.000Z", // KST 7/10
+        end: "2026-07-10T00:00:00.000Z",
+        timeSource: "date-only",
+        startTimeConfirmed: false,
+        endTimeConfirmed: false,
+        confirmed: false,
+        sourceField: "PRZWNER_PRESNATN_DE",
+      }],
+    };
+    const alerts = buildEventAlerts(dateOnly, dateOnly.events ?? [], T("2026-07-01T00:00:00Z"));
+    expect(alerts.map((a) => a.id)).toEqual([
+      `${notice.id}:PRZWNER_PRESNATN_DE:event:1440`,
+      `${notice.id}:PRZWNER_PRESNATN_DE:event:0`,
+    ]);
+    // 전일 09:00 KST, 당일 09:00 KST.
+    expect(alerts.map((a) => new Date(a.fireAt).toISOString())).toEqual([
+      "2026-07-09T00:00:00.000Z",
+      "2026-07-10T00:00:00.000Z",
+    ]);
+    expect(alerts[1].title).toContain("오늘");
+    // 제목·본문에 HH:mm 형태의 가짜 시각을 넣지 않는다.
+    expect(alerts.every((a) => !/\d{1,2}:\d{2}/.test(`${a.title} ${a.body}`))).toBe(true);
+    expect(alerts.every((a) => a.body.includes("청약홈"))).toBe(true);
   });
 });
