@@ -53,6 +53,8 @@ jobs:
           if grep -R -q 'homebom.test/notices' apps/web/dist/assets; then exit 1; fi
       - name: base path 유지 확인
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
+      - name: 운영 빌드 SHA 노출 확인
+        run: grep -q "${GITHUB_SHA}" apps/web/dist/index.html
       - name: 패밀리 공개 자산 확인
         run: pnpm --filter @zoopzoopcall/web validate:family-assets
       - name: 서비스워커 문법 확인

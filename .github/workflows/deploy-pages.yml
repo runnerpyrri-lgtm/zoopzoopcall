@@ -81,6 +81,9 @@ jobs:
       - name: base path 유지 검증 (깨졌으면 배포 중단)
         run: grep -q '/homebom/assets/' apps/web/dist/index.html
 
+      - name: 운영 빌드 SHA 노출 검증
+        run: grep -q "${GITHUB_SHA}" apps/web/dist/index.html
+
       - name: 패밀리 공개 자산 검증
         run: pnpm --filter @zoopzoopcall/web validate:family-assets
 

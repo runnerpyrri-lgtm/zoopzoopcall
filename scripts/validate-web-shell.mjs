@@ -14,4 +14,8 @@ if (!styles.includes("--font: var(--family-font);")) {
   throw new Error("청약봄 글꼴이 중앙 패밀리 토큰과 연결되지 않았습니다.");
 }
 
-console.log("웹 셸 검증 통과: 외부 CDN 0, 패밀리 글꼴 토큰 연결");
+if (!html.includes('name="robom-build-sha"') || !html.includes('content="%VITE_BUILD_SHA%"')) {
+  throw new Error("운영 관제가 읽을 빌드 SHA 메타 태그가 없습니다.");
+}
+
+console.log("웹 셸 검증 통과: 외부 CDN 0, 패밀리 글꼴 토큰 연결, 빌드 SHA 노출");
