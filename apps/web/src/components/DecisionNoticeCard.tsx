@@ -128,6 +128,8 @@ export function DecisionNoticeCard({ notice, now, subscribed }: Props) {
   const showAccountRule = !isNoPriority || Boolean(decision?.subscriptionAccount);
   const receiptEvent = notice.events?.find((item) => ["receipt", "special", "rank1", "rank2", "no-priority"].includes(item.kind));
   const targetTimeConfirmed = status === "접수중" ? receiptEvent?.endTimeConfirmed === true : receiptEvent?.startTimeConfirmed === true;
+  // 상세의 알림 섹션과 동일 기준: 확정 시각 알림 또는 날짜만 아는 세부 일정 알림이 가능할 때만 "알림 설정" 노출.
+  const canSubscribe = targetTimeConfirmed || schedule.some((item) => item.id && ["special", "rank1", "rank2", "no-priority", "winner", "contract"].includes(item.kind));
   const hasEligibility = Boolean(
     (showAccountRule && decision?.subscriptionAccount)
     || decision?.selectionMethod
@@ -215,7 +217,7 @@ export function DecisionNoticeCard({ notice, now, subscribed }: Props) {
         {isApplyDeepLink ? (status === "접수중" ? "청약홈에서 신청" : "청약홈 접수처 열기") : "청약홈 열기"}
       </a>
       <div className="decision-card__secondary-actions">
-        {!finished && <Link to={`/notice/${encodeURIComponent(notice.id)}#alerts`}>{subscribed ? "알림 설정됨" : "알림 설정"}</Link>}
+        {!finished && canSubscribe && <Link to={`/notice/${encodeURIComponent(notice.id)}#alerts`}>{subscribed ? "알림 설정됨" : "알림 설정"}</Link>}
         {mapQuery && <a href={naverMapSearchUrl(mapQuery)} target="_blank" rel="noreferrer">지도</a>}
       </div>
 

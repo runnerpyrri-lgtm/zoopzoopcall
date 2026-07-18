@@ -216,6 +216,10 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
     .filter((value): value is string => Boolean(value))));
   const receiptEvent = notice.events?.find((item) => ["receipt", "special", "rank1", "rank2", "no-priority"].includes(item.kind));
   const targetTimeConfirmed = status === "접수중" ? receiptEvent?.endTimeConfirmed === true : receiptEvent?.startTimeConfirmed === true;
+  // 확정 시각 기준 접수 알림이 없어도, 날짜만 아는 세부 일정(발표·계약 등)은 09시 리마인더로 예약할 수 있다.
+  // 둘 중 하나라도 가능하면 알림 섹션과 진입 버튼을 노출한다(시각 미확정 공고의 dead 버튼 방지).
+  const subscribableEvents = schedule.filter((item) => item.id && ["special", "rank1", "rank2", "no-priority", "winner", "contract"].includes(item.kind));
+  const canSubscribe = targetTimeConfirmed || subscribableEvents.length > 0;
   const hasEligibility = Boolean(
     decision?.subscriptionAccount
     || decision?.selectionMethod
@@ -357,7 +361,7 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
           {isApplyDeepLink ? (status === "접수중" ? "청약홈에서 신청" : "청약홈 접수처 열기") : "청약홈 열기"}
         </a>
         <div className="decision-card__secondary-actions">
-          {!finished && <button type="button" onClick={scrollToAlerts}>{subscribed ? "알림 설정 보기" : "알림 설정"}</button>}
+          {!finished && canSubscribe && <button type="button" onClick={scrollToAlerts}>{subscribed ? "알림 설정 보기" : "알림 설정"}</button>}
           {mapCandidates.length > 0 && <button ref={mapTriggerRef} type="button" onClick={openMap}>지도</button>}
         </div>
 
@@ -456,7 +460,7 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
         )}
       </article>
 
-      {!finished && targetTimeConfirmed && (
+      {!finished && canSubscribe && (
         <section className="alerts-card" id="alerts" tabIndex={-1}>
           <div className="alerts-card__head">
             <h2>알림 받기</h2>
@@ -470,29 +474,33 @@ export function DetailScreen({ notices, subscriptions, loading, error }: Props) 
               <span className="switch__knob" />
             </button>
           </div>
-          <p className="alerts-card__hint">접수 시작일 <strong>{formatKstDateTime(notice.receiptStart)}</strong> 기준으로 예약합니다.</p>
+          <p className="alerts-card__hint">{targetTimeConfirmed ? <>접수 시작일 <strong>{formatKstDateTime(notice.receiptStart)}</strong> 기준으로 예약합니다.</> : <>이 공고는 접수 시각이 아직 확정되지 않아, 발표·계약 등 날짜만 아는 일정을 전날·당일 오전 9시에 알려드려요.</>}</p>
           <PermissionBanner compact permission={permission} onPermissionChange={setPermission} onPermissionGranted={enableAlert} />
           {subscribed && entry && (
             <>
-              <div className="alerts-card__group">
-                <h3>접수 시작 <small>{formatKstDateTime(notice.receiptStart)}</small></h3>
-                <div className="alerts-card__chips">
-                  {DEFAULT_OPEN_OFFSETS.map((off) => (
-                    <button key={off} className={`chip${entry.open.includes(off) ? " chip--active" : ""}`} aria-pressed={entry.open.includes(off)} onClick={() => onOffset("open", off)}>
-                      {off === 0 ? "접수 시각" : `${offsetLabel(off)} 전`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="alerts-card__group">
-                <h3>접수 마감</h3>
-                <div className="alerts-card__chips">
-                  {DEFAULT_CLOSE_OFFSETS.map((off) => (
-                    <button key={off} className={`chip${entry.close.includes(off) ? " chip--active" : ""}`} aria-pressed={entry.close.includes(off)} onClick={() => onOffset("close", off)}>{`${offsetLabel(off)} 전`}</button>
-                  ))}
-                </div>
-              </div>
-              <p className="fineprint">이미 지난 시각의 알림은 예약되지 않아요.</p>
+              {targetTimeConfirmed && (
+                <>
+                  <div className="alerts-card__group">
+                    <h3>접수 시작 <small>{formatKstDateTime(notice.receiptStart)}</small></h3>
+                    <div className="alerts-card__chips">
+                      {DEFAULT_OPEN_OFFSETS.map((off) => (
+                        <button key={off} className={`chip${entry.open.includes(off) ? " chip--active" : ""}`} aria-pressed={entry.open.includes(off)} onClick={() => onOffset("open", off)}>
+                          {off === 0 ? "접수 시각" : `${offsetLabel(off)} 전`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="alerts-card__group">
+                    <h3>접수 마감</h3>
+                    <div className="alerts-card__chips">
+                      {DEFAULT_CLOSE_OFFSETS.map((off) => (
+                        <button key={off} className={`chip${entry.close.includes(off) ? " chip--active" : ""}`} aria-pressed={entry.close.includes(off)} onClick={() => onOffset("close", off)}>{`${offsetLabel(off)} 전`}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="fineprint">이미 지난 시각의 알림은 예약되지 않아요.</p>
+                </>
+              )}
               <div className="alerts-card__group">
                 <h3>세부 일정 <small>선택한 일정을 미리 알려드려요. 시각이 정해지지 않은 발표·계약은 전날·당일 오전 9시에 알림이 와요.</small></h3>
                 <div className="event-alerts">
