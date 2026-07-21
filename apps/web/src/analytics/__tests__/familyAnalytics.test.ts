@@ -55,7 +55,7 @@ describe("family analytics", () => {
       session_kind: "guest",
       anonymous_id: "anonymous-test-id",
       campaign: "",
-      family_spec_version: "1.0.0",
+      family_spec_version: "1.1.0",
     });
     expect(Object.keys(payload).sort()).toEqual([
       "anonymous_id",
