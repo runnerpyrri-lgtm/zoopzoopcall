@@ -59,6 +59,12 @@
           "defaultChannel": "homebom-schedule"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "87542315-5804-490d-a371-3ca9648de794"
+      }
+    },
+    "owner": "robom-labs"
   }
 }
