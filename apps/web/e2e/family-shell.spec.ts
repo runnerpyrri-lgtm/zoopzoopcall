@@ -1,4 +1,4 @@
-// 패밀리 셸의 모바일 내비·5개 앱 설정·PWA 설치 흐름을 실제 브라우저에서 검증한다.
+// 패밀리 셸의 모바일 내비·3개 앱 설정·PWA 설치 흐름을 실제 브라우저에서 검증한다.
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -13,7 +13,7 @@ async function openSettings(page: Page) {
   await expect(page.getByRole("heading", { name: "설치와 업데이트" })).toBeVisible();
 }
 
-test("공통 wordmark와 48px 이상 safe-area 하단 메뉴, 5개 앱 메타를 제공한다", async ({ page }) => {
+test("공통 wordmark와 48px 이상 safe-area 하단 메뉴, 3개 앱 메타를 제공한다", async ({ page }) => {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   page.on("console", (message) => {
@@ -33,9 +33,9 @@ test("공통 wordmark와 48px 이상 safe-area 하단 메뉴, 5개 앱 메타를
   expect(navGeometry.height).toBeGreaterThanOrEqual(72);
   expect(navGeometry.tabHeights.every((height) => height >= 48)).toBe(true);
 
-  const familySection = page.getByRole("region", { name: "로봄 패밀리 앱 5개" });
-  await expect(familySection.getByRole("link")).toHaveCount(5);
-  for (const name of ["야외봄", "러닝봄", "캘린더봄", "자격증봄", "노트봄"]) {
+  const familySection = page.getByRole("region", { name: "로봄 패밀리 앱 3개" });
+  await expect(familySection.getByRole("link")).toHaveCount(3);
+  for (const name of ["야외봄", "러닝봄", "자격증봄"]) {
     await expect(familySection.getByText(name, { exact: true })).toBeVisible();
   }
   await expect(page.getByText(appVersion, { exact: true })).toBeVisible();

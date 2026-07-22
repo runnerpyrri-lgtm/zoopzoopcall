@@ -22,7 +22,6 @@ const APP_DESCRIPTIONS: Record<string, string> = {
   outbom: "날씨·대기질로 야외 활동 시간을 고르는 앱",
   homebom: "공고·접수·발표·계약 일정을 챙기는 앱",
   runningbom: "러닝 대회 접수 시작·마감을 챙기는 앱",
-  calendarbom: "가족 일정과 알림을 함께 관리하는 앱",
   certbom: "조건에 맞는 자격증과 시험 일정을 찾는 앱",
 };
 
@@ -250,7 +249,7 @@ export function InfoScreen({ source }: { source: NoticeSource }) {
       </section>
 
       <section className="settings-card" aria-labelledby="family-apps">
-        <CardHead icon={IC.house} title="로봄 패밀리 앱 5개" id="family-apps" />
+        <CardHead icon={IC.house} title="로봄 패밀리 앱 3개" id="family-apps" />
         {familyMeta.familyApps.filter((app) => app.id !== "homebom").map((app) => (
           <SettingsRow
             key={app.id}
