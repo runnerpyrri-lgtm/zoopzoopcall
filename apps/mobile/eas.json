@@ -19,7 +19,9 @@
     "production": {
       "autoIncrement": false,
       "env": {
-        "EXPO_PUBLIC_NOTICES_URL": "https://neqjmxaneibobpedgsnl.supabase.co/functions/v1/notices"
+        "EXPO_PUBLIC_NOTICES_URL": "https://neqjmxaneibobpedgsnl.supabase.co/functions/v1/notices",
+        "EXPO_PUBLIC_SUPPORT_URL": "https://robom.kr/support",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://robom.kr/privacy/homebom"
       },
       "android": {
         "buildType": "app-bundle"

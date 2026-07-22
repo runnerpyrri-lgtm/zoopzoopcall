@@ -1,11 +1,14 @@
 // 공고의 출처와 안정 식별자, 공급 핵심값을 카드로 보여준다.
-import { StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import type { NativeNotice } from "../domain/notice";
 import { colors } from "../theme";
 
 type Props = {
   notice: NativeNotice;
 };
+
+const SUPPORT_URL = process.env.EXPO_PUBLIC_SUPPORT_URL ?? "https://robom.kr/support";
+const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL ?? "https://robom.kr/privacy/homebom";
 
 export function NoticeOverview({ notice }: Props) {
   return (
@@ -23,6 +26,15 @@ export function NoticeOverview({ notice }: Props) {
       </View>
       <Text style={styles.source}>출처 · {notice.sourceLabel}</Text>
       <Text style={styles.disclaimer}>표시된 정보는 청약홈 공식 자료 기준입니다. 신청 전 청약홈에서 원문과 정정 여부를 확인하세요.</Text>
+      <Text style={styles.affiliation}>청약봄은 정부기관, 한국부동산원 또는 청약홈의 공식·제휴·승인 앱이 아니며 청약 신청을 직접 처리하지 않습니다.</Text>
+      <View style={styles.legalLinks}>
+        <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(SUPPORT_URL).catch(() => undefined)} style={styles.legalLinkButton}>
+          <Text style={styles.legalLink}>지원</Text>
+        </Pressable>
+        <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL).catch(() => undefined)} style={styles.legalLinkButton}>
+          <Text style={styles.legalLink}>개인정보 처리방침</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -105,5 +117,28 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontSize: 12,
     lineHeight: 18,
+  },
+  affiliation: {
+    marginTop: 8,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  legalLinks: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  legalLinkButton: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  legalLink: {
+    color: colors.accentDeep,
+    fontSize: 13,
+    fontWeight: "800",
+    textDecorationLine: "underline",
   },
 });
